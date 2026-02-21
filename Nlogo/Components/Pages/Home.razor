@@ -49,34 +49,56 @@
 <!-- ═══════════════════════════ MAIN SPLIT ═══════════════════════════ -->
 <div class="ide-body">
 
-        <!-- ── EDITOR PANE ── -->
-<div class="editor-pane" id="editorPane">
-    <div class="pane-header">
-        <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
-        <MudText Typo="Typo.caption" Class="ml-1">Editor</MudText>
-        <MudSpacer />
-        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
-                       Size="Size.Small" Title="Copy code"
-                       OnClick="CopyCode" />
-    </div>
+    <!-- ── LEFT COLUMN: editor + console stacked ── -->
+    <div class="left-column" id="leftColumn">
 
-    <!-- Mirror wrapper: pre sits behind, textarea floats on top -->
-    <div class="mirror-wrapper">
-        <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
-        <textarea id="codeEditor"
-                  class="code-editor"
-                  spellcheck="false"
-                  placeholder="; Write Logo code here...">
-        </textarea>
+        <!-- Editor pane -->
+        <div class="editor-pane">
+            <div class="pane-header">
+                <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
+                <MudText Typo="Typo.caption" Class="ml-1">Editor</MudText>
+                <MudSpacer />
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                               Size="Size.Small" Title="Copy code"
+                               OnClick="CopyCode" />
+            </div>
+            <div class="mirror-wrapper">
+                <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
+                <textarea id="codeEditor"
+                          class="code-editor"
+                          spellcheck="false"
+                          placeholder="; Write Logo code here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Console pane — sits directly below the editor, same width -->
+        <div class="console-pane">
+            <div class="d-flex align-center px-2 pt-1">
+                <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" />
+                <MudText Typo="Typo.caption" Class="ml-1">Output</MudText>
+                <MudSpacer />
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteSweep"
+                               Size="Size.Small" Title="Clear console"
+                               OnClick="() => _consoleLines.Clear()" />
+            </div>
+            <div class="console-output" id="consoleOutput">
+                @foreach (var line in _consoleLines)
+                {
+                    <div class="@(line.IsError ? "con-error" : line.IsSystem ? "con-system" : "con-normal")">
+                        <span class="con-prefix">@line.Prefix</span>@line.Text
+                    </div>
+                }
+            </div>
+        </div>
+
     </div>
-</div>
 
     <!-- ── RESIZE HANDLE ── -->
     <div class="resize-handle" id="resizeHandle">
         <div class="resize-grip"></div>
     </div>
 
-    <!-- ── CANVAS PANE ── -->
+    <!-- ── CANVAS PANE — fills remaining space ── -->
     <div class="canvas-pane" id="canvasPane">
         <div class="pane-header">
             <MudIcon Icon="@Icons.Material.Filled.Brush" Size="Size.Small" />
@@ -93,37 +115,15 @@
 
 </div>
 
-<!-- ═══════════════════════════ CONSOLE ═══════════════════════════ -->
-<MudPaper Elevation="2" Class="console-pane" Square="true">
-    <div class="d-flex align-center px-2 pt-1">
-        <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" />
-        <MudText Typo="Typo.caption" Class="ml-1">Output</MudText>
-        <MudSpacer />
-        <MudIconButton Icon="@Icons.Material.Filled.DeleteSweep"
-                       Size="Size.Small" Title="Clear console"
-                       OnClick="() => _consoleLines.Clear()" />
-    </div>
-    <div class="console-output" id="consoleOutput">
-        @foreach (var line in _consoleLines)
-        {
-            <div class="@(line.IsError ? "con-error" : line.IsSystem ? "con-system" : "con-normal")">
-                <span class="con-prefix">@line.Prefix</span>@line.Text
-            </div>
-        }
-    </div>
-</MudPaper>
-
 @code {
 
     // ── State ──────────────────────────────────────────────────────
-  
     private int _speed = 5;
     private bool _isRunning = false;
     private string _statusMessage = "Ready";
 
     private readonly List<ConsoleLine> _consoleLines = new();
     private IJSObjectReference? _jsModule;
-
     private CancellationTokenSource? _cts;
 
     // ── Lifecycle ──────────────────────────────────────────────────
@@ -135,9 +135,9 @@
                 "import", "./js/ideInterop.js");
 
             await _jsModule.InvokeVoidAsync("initCanvas", "turtleCanvas");
-            await _jsModule.InvokeVoidAsync("initResizer", "resizeHandle", "editorPane", "canvasPane");
-            await _jsModule.InvokeVoidAsync("initEditor", "codeEditor");   // ← new
+            await _jsModule.InvokeVoidAsync("initResizer", "resizeHandle", "leftColumn", "canvasPane");
 
+            // initEditor is handled by the script in index.html
             Log("▶  Logo IDE ready.", isSystem: true);
         }
     }
@@ -145,7 +145,13 @@
     // ── Toolbar Actions ────────────────────────────────────────────
     private async Task RunCode()
     {
-        var code = await _jsModule!.InvokeAsync<string>("getEditorValue");
+        if (_jsModule is null)
+        {
+            Log("Editor not ready yet.", isSystem: true);
+            return;
+        }
+
+        var code = await _jsModule.InvokeAsync<string>("getEditorValue");
         if (string.IsNullOrWhiteSpace(code))
         {
             Log("Nothing to run.", isSystem: true);
@@ -156,11 +162,11 @@
         _isRunning     = true;
         _statusMessage = "Running...";
         _consoleLines.Clear();
+        StateHasChanged();
 
         try
         {
-            // Lex
-            var lexer = new Lexer(code);  // ← was _code, now code
+            var lexer = new Lexer(code);
             lexer.Tokenise();
             if (lexer.HasErrors)
             {
@@ -168,7 +174,6 @@
                 return;
             }
 
-            // Parse
             var parser = new Parser(lexer.Tokens);
             var ast = parser.Parse();
             if (parser.HasErrors)
@@ -177,9 +182,8 @@
                 return;
             }
 
-            // Run
             var interpreter = new Interpreter(
-                js: _jsModule!,
+                js: _jsModule,
                 log: msg => Log(msg),
                 logError: msg => Log(msg, isError: true),
                 ct: _cts.Token,
@@ -208,16 +212,13 @@
         finally
         {
             _isRunning = false;
-            _cts.Dispose();
+            _cts?.Dispose();
             _cts = null;
             StateHasChanged();
         }
     }
 
-    private void StopCode()
-    {
-        _cts?.Cancel();
-    }
+    private void StopCode() => _cts?.Cancel();
 
     private async Task ClearCanvas()
     {
@@ -269,67 +270,4 @@
         bool IsError = false,
         bool IsSystem = false
     );
-
-    private void PrintNode(Node node, int depth)
-    {
-        var indent = new string(' ', depth * 2);
-        var label = node switch
-        {
-            ProgramNode p => $"Program ({p.Statements.Count} statements)",
-            RepeatNode _ => "Repeat",
-            ForeverNode _ => "Forever",
-            IfNode _ => "If",
-            IfElseNode _ => "IfElse",
-            WhileNode _ => "While",
-            ForwardNode _ => "Forward",
-            BackwardNode _ => "Backward",
-            RightNode _ => "Right",
-            LeftNode _ => "Left",
-            HomeNode _ => "Home",
-            PenUpNode _ => "PenUp",
-            PenDownNode _ => "PenDown",
-            SetColorNode _ => "SetColor",
-            SetWidthNode _ => "SetWidth",
-            ClearScreenNode _ => "ClearScreen",
-            ProcDefNode p => $"ProcDef '{p.Name}' ({string.Join(", ", p.Params)})",
-            ProcCallNode p => $"ProcCall '{p.Name}'",
-            MakeNode m => $"Make \"{m.Name}",
-            LocalNode l => $"Local \"{l.Name}",
-            DerefNode d => $":{d.Name}",
-            NumberNode n => $"Number {n.Value}",
-            StringNode s => $"String \"{s.Value}",
-            BooleanNode b => $"Boolean {b.Value}",
-            BinaryOpNode b => $"BinaryOp '{b.Op}'",
-            UnaryOpNode u => $"UnaryOp '{u.Op}'",
-            StopNode _ => "Stop",
-            OutputNode _ => "Output",
-            _ => node.GetType().Name
-        };
-
-        Log($"{indent}{label}", isSystem: depth == 0);
-
-        switch (node)
-        {
-            case ProgramNode p: foreach (var s in p.Statements) PrintNode(s, depth + 1); break;
-            case RepeatNode r: PrintNode(r.Count, depth + 1); foreach (var s in r.Body) PrintNode(s, depth + 1); break;
-            case ForeverNode f: foreach (var s in f.Body) PrintNode(s, depth + 1); break;
-            case IfNode i: PrintNode(i.Condition, depth + 1); foreach (var s in i.Then) PrintNode(s, depth + 1); break;
-            case IfElseNode i: PrintNode(i.Condition, depth + 1); foreach (var s in i.Then) PrintNode(s, depth + 1); foreach (var s in i.Else) PrintNode(s, depth + 1); break;
-            case WhileNode w: PrintNode(w.Condition, depth + 1); foreach (var s in w.Body) PrintNode(s, depth + 1); break;
-            case ForwardNode f: PrintNode(f.Distance, depth + 1); break;
-            case BackwardNode b: PrintNode(b.Distance, depth + 1); break;
-            case RightNode r: PrintNode(r.Degrees, depth + 1); break;
-            case LeftNode l: PrintNode(l.Degrees, depth + 1); break;
-            case SetColorNode c: PrintNode(c.Color, depth + 1); break;
-            case SetWidthNode w: PrintNode(w.Width, depth + 1); break;
-            case SetPosNode s: PrintNode(s.X, depth + 1); PrintNode(s.Y, depth + 1); break;
-            case ProcDefNode p: foreach (var s in p.Body) PrintNode(s, depth + 1); break;
-            case ProcCallNode p: foreach (var a in p.Args) PrintNode(a, depth + 1); break;
-            case MakeNode m: PrintNode(m.Value, depth + 1); break;
-            case OutputNode o: PrintNode(o.Value, depth + 1); break;
-            case BinaryOpNode b: PrintNode(b.Left, depth + 1); PrintNode(b.Right, depth + 1); break;
-            case UnaryOpNode u: PrintNode(u.Operand, depth + 1); break;
-        }
-    }
-   
 }

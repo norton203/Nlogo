@@ -1,39 +1,93 @@
-﻿import { highlight } from './highlighter.js';
+﻿// ── Token definitions ────────────────────────────────────────────
+const TOKENS = [
+    { type: 'comment', pattern: /;[^\n]*/ },
+    { type: 'keyword', pattern: /\b(FORWARD|FD|BACKWARD|BK|RIGHT|RT|LEFT|LT|PENUP|PU|PENDOWN|PD|HOME|CLEARSCREEN|CS|SETCOLOR|SETPENCOLOR|SETPC|SETWIDTH|SETPENSIZE|SETPOS|SHOWTURTLE|ST|HIDETURTLE|HT|REPEAT|FOREVER|IF|IFELSE|WHILE|STOP|OUTPUT|OP|TO|END|MAKE|LOCAL|THING|AND|OR|NOT|PRINT|SHOW|TYPE|RANDOM|SIN|COS|TAN|ARCTAN|SQRT|ABS|ROUND|INT|POWER|LOG|EXP|TRUE|FALSE|WAIT|LABEL)\b/i },
+    { type: 'string', pattern: /"[^\s\[\]()]*/ },
+    { type: 'deref', pattern: /:[A-Za-z_][A-Za-z0-9_]*/ },
+    { type: 'number', pattern: /-?\d+(\.\d+)?/ },
+    { type: 'bracket', pattern: /[\[\]()]/ },
+    { type: 'operator', pattern: /[+\-*\/^%=<>]+/ },
+];
 
-// ── Canvas state ────────────────────────────────────────────────
-let canvas, ctx;
-let turtle = { x: 0, y: 0, angle: 0, penDown: true, color: '#000', width: 2 };
-
-// ── Init ────────────────────────────────────────────────────────
-export function initCanvas(canvasId) {
-    canvas = document.getElementById(canvasId);
-    resizeCanvasToWrapper();
-    resetTurtle();
-    drawTurtleMarker();
-
-    // Keep canvas crisp when wrapper resizes
-    window.addEventListener('resize', () => {
-        resizeCanvasToWrapper();
-        resetTurtle();
-    });
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
-function resizeCanvasToWrapper() {
+function highlight(source) {
+    let output = '';
+    let pos = 0;
+    while (pos < source.length) {
+        let matched = false;
+        for (const { type, pattern } of TOKENS) {
+            const anchored = new RegExp('^(?:' + pattern.source + ')', 'i');
+            const match = anchored.exec(source.slice(pos));
+            if (match) {
+                output += `<span class="tok-${type}">${escapeHtml(match[0])}</span>`;
+                pos += match[0].length;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            const ch = source[pos];
+            output += ch === '\n' ? '\n' : escapeHtml(ch);
+            pos++;
+        }
+    }
+    return output + '\n';
+}
+
+// ── Canvas state ─────────────────────────────────────────────────
+let canvas, ctx;
+let turtle = { x: 0, y: 0, angle: -90, penDown: true, color: '#222222', width: 2 };
+
+// ── Init canvas with ResizeObserver ──────────────────────────────
+export function initCanvas(canvasId) {
+    canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        console.error('initCanvas: canvas element not found:', canvasId);
+        return;
+    }
+
+    const wrapper = canvas.parentElement;
+
+    // ResizeObserver fires whenever the wrapper changes size,
+    // including the initial layout pass — no timing guesswork needed.
+    const ro = new ResizeObserver(() => {
+        fitCanvasToWrapper();
+    });
+    ro.observe(wrapper);
+
+    // Attempt an immediate fit in case the observer fires late
+    fitCanvasToWrapper();
+}
+
+function fitCanvasToWrapper() {
     if (!canvas) return;
     const wrapper = canvas.parentElement;
-    const size = Math.min(wrapper.clientWidth, wrapper.clientHeight) - 16;
+    const w = wrapper.clientWidth;
+    const h = wrapper.clientHeight;
+    if (w === 0 || h === 0) return; // layout not ready yet, observer will retry
+
+    const size = Math.min(w, h) - 16;
     canvas.width = size;
     canvas.height = size;
     ctx = canvas.getContext('2d');
+
+    resetTurtle();
+    drawTurtleMarker();
 }
 
-// ── Turtle helpers ──────────────────────────────────────────────
+// ── Turtle helpers ───────────────────────────────────────────────
 function resetTurtle() {
     if (!canvas) return;
     turtle = {
         x: canvas.width / 2,
         y: canvas.height / 2,
-        angle: -90,   // 0° = up, matching Logo convention
+        angle: -90,
         penDown: true,
         color: '#222222',
         width: 2
@@ -64,7 +118,7 @@ function drawTurtleMarker() {
     ctx.restore();
 }
 
-// ── Draw commands (called from C# compiler output) ─────────────
+// ── Draw commands ────────────────────────────────────────────────
 export function forward(distance) {
     const rad = (turtle.angle * Math.PI) / 180;
     const newX = turtle.x + distance * Math.cos(rad);
@@ -89,12 +143,9 @@ export function right(degrees) { turtle.angle += degrees; }
 export function left(degrees) { turtle.angle -= degrees; }
 export function penUp() { turtle.penDown = false; }
 export function penDown() { turtle.penDown = true; }
-
 export function setColor(color) { turtle.color = color; }
 export function setWidth(w) { turtle.width = w; }
-export function backward(distance) {
-    forward(-distance); // reuse forward with negative distance
-}
+export function backward(distance) { forward(-distance); }
 
 export function home() {
     turtle.x = canvas.width / 2;
@@ -103,14 +154,15 @@ export function home() {
     drawTurtleMarker();
 }
 
-export function showTurtle() { /* hook for later if you want to toggle visibility */ }
-export function hideTurtle() { /* hook for later */ }
+export function showTurtle() { }
+export function hideTurtle() { }
+
 export function goTo(x, y) {
     turtle.x = canvas.width / 2 + x;
     turtle.y = canvas.height / 2 - y;
 }
 
-// ── Canvas utilities ────────────────────────────────────────────
+// ── Canvas utilities ─────────────────────────────────────────────
 export function clearCanvas() {
     if (!ctx || !canvas) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -129,43 +181,48 @@ export function copyToClipboard(text) {
     navigator.clipboard.writeText(text);
 }
 
-// ── Drag-to-resize ──────────────────────────────────────────────
-
-export function updateHighlight(source) {
+// ── Editor ───────────────────────────────────────────────────────
+function updateHighlight(source) {
     const code = document.getElementById('highlightCode');
     if (code) code.innerHTML = highlight(source);
     syncScroll();
 }
 
-export function initEditor(editorId, initialValue) {
-    const textarea = document.getElementById(editorId);
-    if (!textarea) return;
-
-    // Set initial value without Blazor whitespace artifact
-    if (initialValue) {
-        textarea.value = initialValue;
-        updateHighlight(initialValue);
-    }
-
-    // Own the input event in JS — do NOT use Blazor @oninput
-    textarea.addEventListener('input', () => {
-        updateHighlight(textarea.value);
-    });
-
-    textarea.addEventListener('scroll', syncScroll);
-
-    textarea.addEventListener('keydown', e => {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            textarea.value =
-                textarea.value.substring(0, start) + '  ' +
-                textarea.value.substring(end);
-            textarea.selectionStart = textarea.selectionEnd = start + 2;
-            updateHighlight(textarea.value);
+export function initEditor(editorId) {
+    const attempt = (retries) => {
+        const textarea = document.getElementById(editorId);
+        if (!textarea) {
+            if (retries > 0) {
+                setTimeout(() => attempt(retries - 1), 100);
+            } else {
+                console.error('initEditor: element never found:', editorId);
+            }
+            return;
         }
-    });
+
+        textarea.value = '';
+        updateHighlight('');
+
+        textarea.addEventListener('input', () => updateHighlight(textarea.value));
+        textarea.addEventListener('scroll', syncScroll);
+
+        textarea.addEventListener('keydown', e => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                textarea.value =
+                    textarea.value.substring(0, start) + '  ' +
+                    textarea.value.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + 2;
+                updateHighlight(textarea.value);
+            }
+        });
+
+        console.log('initEditor: ready');
+    };
+
+    attempt(20);
 }
 
 export function getEditorValue() {
@@ -182,45 +239,67 @@ function syncScroll() {
     }
 }
 
+// ── Drag-to-resize ───────────────────────────────────────────────
 export function initResizer(handleId, leftPaneId, rightPaneId) {
     const handle = document.getElementById(handleId);
     const leftPane = document.getElementById(leftPaneId);
+    const rightPane = document.getElementById(rightPaneId);
+
+    if (!handle || !leftPane || !rightPane) {
+        console.error('initResizer: could not find elements', { handleId, leftPaneId, rightPaneId });
+        return;
+    }
+
     const container = leftPane.parentElement;
     let dragging = false;
+    let startX = 0;
+    let startWidth = 0;
 
-    function startDrag(e) {
+    function getClientX(e) {
+        return e.touches ? e.touches[0].clientX : e.clientX;
+    }
+
+    function onStart(e) {
         dragging = true;
+        startX = getClientX(e);
+        startWidth = leftPane.getBoundingClientRect().width;
         handle.classList.add('dragging');
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
         e.preventDefault();
     }
 
-    function doDrag(clientX) {
+    function onMove(e) {
         if (!dragging) return;
-        const rect = container.getBoundingClientRect();
-        const newWidth = clientX - rect.left;
-        const pct = (newWidth / rect.width) * 100;
-        if (pct > 20 && pct < 80)
+        const dx = getClientX(e) - startX;
+        const containerW = container.getBoundingClientRect().width;
+        const newWidth = startWidth + dx;
+        const pct = (newWidth / containerW) * 100;
+        if (pct > 15 && pct < 85) {
             leftPane.style.width = `${pct}%`;
+        }
+        e.preventDefault();
     }
 
-    function endDrag() {
+    function onEnd() {
         if (!dragging) return;
         dragging = false;
         handle.classList.remove('dragging');
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        resizeCanvasToWrapper();
+        // Let the ResizeObserver on the canvas wrapper handle the canvas resize
+        fitCanvasToWrapper();
     }
 
     // Mouse events
-    handle.addEventListener('mousedown', startDrag);
-    document.addEventListener('mousemove', e => doDrag(e.clientX));
-    document.addEventListener('mouseup', endDrag);
+    handle.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
 
-    // Touch events (needed for MAUI WebView)
-    handle.addEventListener('touchstart', e => startDrag(e.touches[0]));
-    document.addEventListener('touchmove', e => { doDrag(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchend', endDrag);
+    // Touch events (MAUI WebView)
+    handle.addEventListener('touchstart', onStart, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+
+    console.log('initResizer: ready');
 }
