@@ -49,8 +49,7 @@
 <!-- ═══════════════════════════ MAIN SPLIT ═══════════════════════════ -->
 <div class="ide-body">
 
-    <!-- ── EDITOR PANE ── -->
-    <!-- ── EDITOR PANE ── -->
+        <!-- ── EDITOR PANE ── -->
 <div class="editor-pane" id="editorPane">
     <div class="pane-header">
         <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
@@ -66,7 +65,6 @@
         <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
         <textarea id="codeEditor"
                   class="code-editor"
-                  @bind="_code"
                   @oninput="OnCodeInput"
                   spellcheck="false"
                   placeholder="; Write Logo code here...">

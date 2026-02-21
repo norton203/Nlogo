@@ -201,3 +201,46 @@ function syncScroll() {
         pre.scrollLeft = textarea.scrollLeft;
     }
 }
+
+export function initResizer(handleId, leftPaneId, rightPaneId) {
+    const handle = document.getElementById(handleId);
+    const leftPane = document.getElementById(leftPaneId);
+    const container = leftPane.parentElement;
+    let dragging = false;
+
+    function startDrag(e) {
+        dragging = true;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    }
+
+    function doDrag(clientX) {
+        if (!dragging) return;
+        const rect = container.getBoundingClientRect();
+        const newWidth = clientX - rect.left;
+        const pct = (newWidth / rect.width) * 100;
+        if (pct > 20 && pct < 80)
+            leftPane.style.width = `${pct}%`;
+    }
+
+    function endDrag() {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        resizeCanvasToWrapper();
+    }
+
+    // Mouse events
+    handle.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', e => doDrag(e.clientX));
+    document.addEventListener('mouseup', endDrag);
+
+    // Touch events (needed for MAUI WebView)
+    handle.addEventListener('touchstart', e => startDrag(e.touches[0]));
+    document.addEventListener('touchmove', e => { doDrag(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchend', endDrag);
+}
