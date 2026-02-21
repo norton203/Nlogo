@@ -1,0 +1,247 @@
+﻿/* ── Layout skeleton ───────────────────────────────────────────── */
+:root {
+    --toolbar-h: 52px;
+    --console-h: 140px;
+    --header-h: 30px;
+    --handle-w: 6px;
+    --bg-editor: #1e1e1e;
+    --bg-canvas: #f5f5f5;
+    --bg-header: #2d2d2d;
+    --col-header: #a0a0a0;
+}
+
+.toolbar-bar {
+    height: var(--toolbar-h);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.ide-body {
+    display: flex;
+    flex-direction: row;
+    height: calc(100vh - var(--toolbar-h) - var(--console-h));
+    overflow: hidden;
+}
+
+/* ── Editor pane ───────────────────────────────────────────────── */
+.editor-pane {
+    display: flex;
+    flex-direction: column;
+    width: 45%;
+    min-width: 200px;
+    background: var(--bg-editor);
+    overflow: hidden;
+}
+
+.pane-header {
+    display: flex;
+    align-items: center;
+    height: var(--header-h);
+    padding: 0 8px;
+    background: var(--bg-header);
+    color: var(--col-header);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.code-editor {
+    flex: 1;
+    width: 100%;
+    background: var(--bg-editor);
+    color: #d4d4d4;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 12px 16px;
+    border: none;
+    outline: none;
+    resize: none;
+    tab-size: 2;
+    caret-color: #aeafad;
+}
+
+    .code-editor::placeholder {
+        color: #555;
+    }
+
+/* ── Resize handle ─────────────────────────────────────────────── */
+.resize-handle {
+    width: var(--handle-w);
+    background: #333;
+    cursor: col-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+    .resize-handle:hover,
+    .resize-handle.dragging {
+        background: var(--mud-palette-primary);
+    }
+
+.resize-grip {
+    width: 2px;
+    height: 40px;
+    background: #555;
+    border-radius: 2px;
+}
+
+/* ── Canvas pane ───────────────────────────────────────────────── */
+.canvas-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg-canvas);
+    overflow: hidden;
+}
+
+    .canvas-pane .pane-header {
+        background: #e8e8e8;
+        color: #555;
+    }
+
+.canvas-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 8px;
+}
+
+#turtleCanvas {
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: block;
+}
+
+/* ── Console ───────────────────────────────────────────────────── */
+.console-pane {
+    height: var(--console-h);
+    display: flex;
+    flex-direction: column;
+    background: #1a1a1a;
+    color: #ccc;
+    flex-shrink: 0;
+}
+
+.console-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 12px 8px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.con-normal {
+    color: #d4d4d4;
+}
+
+.con-system {
+    color: #569cd6;
+}
+
+.con-error {
+    color: #f48771;
+}
+
+.con-prefix {
+    opacity: 0.5;
+    margin-right: 4px;
+}
+/* ── Mirror editor layout ──────────────────────────────────────── */
+.mirror-wrapper {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+
+.highlight-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 12px 16px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+    pointer-events: none; /* clicks pass through to textarea */
+    color: #d4d4d4;
+    background: transparent;
+    border: none;
+    tab-size: 2;
+}
+
+    .highlight-layer code {
+        font-family: inherit;
+        font-size: inherit;
+        background: transparent;
+        padding: 0;
+    }
+
+/* Textarea must be transparent so highlight shows through */
+.code-editor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent !important;
+    color: transparent;
+    caret-color: #aeafad; /* cursor stays visible */
+    z-index: 1;
+    resize: none;
+    border: none;
+    outline: none;
+    padding: 12px 16px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    tab-size: 2;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: auto;
+}
+
+/* ── Token colours (VS Code Dark+ inspired) ────────────────────── */
+.tok-comment {
+    color: #6a9955;
+    font-style: italic;
+}
+/* green        */
+.tok-keyword {
+    color: #569cd6;
+    font-weight: 600;
+}
+/* blue         */
+.tok-string {
+    color: #ce9178;
+}
+/* orange       */
+.tok-deref {
+    color: #9cdcfe;
+}
+/* light blue   */
+.tok-number {
+    color: #b5cea8;
+}
+/* light green  */
+.tok-bracket {
+    color: #ffd700;
+}
+/* gold         */
+.tok-operator {
+    color: #d4d4d4;
+}
+/* default grey */
