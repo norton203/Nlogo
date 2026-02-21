@@ -65,9 +65,8 @@
         <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
         <textarea id="codeEditor"
                   class="code-editor"
-                  @oninput="OnCodeInput"
                   spellcheck="false"
-                  placeholder="; Write Logo code here...">@_code
+                  placeholder="; Write Logo code here...">
         </textarea>
     </div>
 </div>
@@ -117,7 +116,7 @@
 @code {
 
     // ── State ──────────────────────────────────────────────────────
-    private string _code = string.Empty;
+  
     private int _speed = 5;
     private bool _isRunning = false;
     private string _statusMessage = "Ready";
@@ -146,7 +145,12 @@
     // ── Toolbar Actions ────────────────────────────────────────────
     private async Task RunCode()
     {
-        if (string.IsNullOrWhiteSpace(_code)) { Log("Nothing to run.", isSystem: true); return; }
+        var code = await _jsModule!.InvokeAsync<string>("getEditorValue");
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            Log("Nothing to run.", isSystem: true);
+            return;
+        }
 
         _cts           = new CancellationTokenSource();
         _isRunning     = true;
@@ -156,7 +160,7 @@
         try
         {
             // Lex
-            var lexer = new Lexer(_code);
+            var lexer = new Lexer(code);  // ← was _code, now code
             lexer.Tokenise();
             if (lexer.HasErrors)
             {
@@ -227,7 +231,10 @@
     private async Task CopyCode()
     {
         if (_jsModule is not null)
-            await _jsModule.InvokeVoidAsync("copyToClipboard", _code);
+        {
+            var code = await _jsModule.InvokeAsync<string>("getEditorValue");
+            await _jsModule.InvokeVoidAsync("copyToClipboard", code);
+        }
     }
 
     private async Task SaveCanvas()
@@ -324,10 +331,5 @@
             case UnaryOpNode u: PrintNode(u.Operand, depth + 1); break;
         }
     }
-    private async Task OnCodeInput(ChangeEventArgs e)
-    {
-        _code = e.Value?.ToString() ?? string.Empty;
-        if (_jsModule is not null)
-            await _jsModule.InvokeVoidAsync("updateHighlight", _code);
-    }
+   
 }

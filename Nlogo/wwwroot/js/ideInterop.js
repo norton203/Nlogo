@@ -137,14 +137,23 @@ export function updateHighlight(source) {
     syncScroll();
 }
 
-export function initEditor(editorId) {
+export function initEditor(editorId, initialValue) {
     const textarea = document.getElementById(editorId);
     if (!textarea) return;
 
-    // Sync scroll position so highlight layer tracks the textarea
+    // Set initial value without Blazor whitespace artifact
+    if (initialValue) {
+        textarea.value = initialValue;
+        updateHighlight(initialValue);
+    }
+
+    // Own the input event in JS — do NOT use Blazor @oninput
+    textarea.addEventListener('input', () => {
+        updateHighlight(textarea.value);
+    });
+
     textarea.addEventListener('scroll', syncScroll);
 
-    // Handle Tab key — insert spaces instead of moving focus
     textarea.addEventListener('keydown', e => {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -154,11 +163,14 @@ export function initEditor(editorId) {
                 textarea.value.substring(0, start) + '  ' +
                 textarea.value.substring(end);
             textarea.selectionStart = textarea.selectionEnd = start + 2;
-
-            // Trigger highlight update after tab insert
             updateHighlight(textarea.value);
         }
     });
+}
+
+export function getEditorValue() {
+    const textarea = document.getElementById('codeEditor');
+    return textarea ? textarea.value : '';
 }
 
 function syncScroll() {
