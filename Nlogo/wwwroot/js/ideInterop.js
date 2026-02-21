@@ -130,39 +130,7 @@ export function copyToClipboard(text) {
 }
 
 // ── Drag-to-resize ──────────────────────────────────────────────
-export function initResizer(handleId, leftPaneId, rightPaneId) {
-    const handle = document.getElementById(handleId);
-    const leftPane = document.getElementById(leftPaneId);
-    const container = leftPane.parentElement;
-    let dragging = false;
 
-    handle.addEventListener('mousedown', e => {
-        dragging = true;
-        handle.classList.add('dragging');
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-        e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', e => {
-        if (!dragging) return;
-        const rect = container.getBoundingClientRect();
-        const newWidth = e.clientX - rect.left;
-        const pct = (newWidth / rect.width) * 100;
-
-        if (pct > 20 && pct < 80)
-            leftPane.style.width = `${pct}%`;
-    });
-
-    document.addEventListener('mouseup', () => {
-        if (!dragging) return;
-        dragging = false;
-        handle.classList.remove('dragging');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        resizeCanvasToWrapper(); // re-fit canvas after resize
-    });
-}
 export function updateHighlight(source) {
     const code = document.getElementById('highlightCode');
     if (code) code.innerHTML = highlight(source);
