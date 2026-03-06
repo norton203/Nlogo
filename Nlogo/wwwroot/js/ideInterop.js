@@ -54,27 +54,29 @@ export function initCanvas(canvasId) {
 
     const wrapper = canvas.parentElement;
 
-    // ResizeObserver fires whenever the wrapper changes size,
-    // including the initial layout pass — no timing guesswork needed.
     const ro = new ResizeObserver(() => {
         fitCanvasToWrapper();
     });
     ro.observe(wrapper);
 
-    // Attempt an immediate fit in case the observer fires late
+    // Also attempt an immediate fit
     fitCanvasToWrapper();
 }
 
 function fitCanvasToWrapper() {
     if (!canvas) return;
     const wrapper = canvas.parentElement;
-    const w = wrapper.clientWidth;
-    const h = wrapper.clientHeight;
-    if (w === 0 || h === 0) return; // layout not ready yet, observer will retry
 
-    const size = Math.min(w, h) - 16;
-    canvas.width = size;
-    canvas.height = size;
+    // Use the full wrapper dimensions minus a small padding allowance
+    const padding = 8;
+    const w = wrapper.clientWidth - padding * 2;
+    const h = wrapper.clientHeight - padding * 2;
+
+    if (w <= 10 || h <= 10) return; // layout not ready yet, observer will retry
+
+    // Save any existing drawing before resize (optional: clear on resize)
+    canvas.width = Math.round(w);
+    canvas.height = Math.round(h);
     ctx = canvas.getContext('2d');
 
     resetTurtle();
@@ -89,13 +91,14 @@ function resetTurtle() {
         y: canvas.height / 2,
         angle: -90,
         penDown: true,
+        visible: true,
         color: '#222222',
         width: 2
     };
 }
 
 function drawTurtleMarker() {
-    if (!ctx) return;
+    if (!ctx || !turtle.visible) return;
     const r = 8;
     const rad = (turtle.angle * Math.PI) / 180;
 
@@ -139,8 +142,8 @@ export function forward(distance) {
     drawTurtleMarker();
 }
 
-export function right(degrees) { turtle.angle += degrees; }
-export function left(degrees) { turtle.angle -= degrees; }
+export function right(degrees) { turtle.angle += degrees; drawTurtleMarker(); }
+export function left(degrees) { turtle.angle -= degrees; drawTurtleMarker(); }
 export function penUp() { turtle.penDown = false; }
 export function penDown() { turtle.penDown = true; }
 export function setColor(color) { turtle.color = color; }
@@ -148,18 +151,27 @@ export function setWidth(w) { turtle.width = w; }
 export function backward(distance) { forward(-distance); }
 
 export function home() {
+    if (!canvas) return;
     turtle.x = canvas.width / 2;
     turtle.y = canvas.height / 2;
     turtle.angle = -90;
     drawTurtleMarker();
 }
 
-export function showTurtle() { }
-export function hideTurtle() { }
+export function showTurtle() {
+    turtle.visible = true;
+    drawTurtleMarker();
+}
+
+export function hideTurtle() {
+    turtle.visible = false;
+}
 
 export function goTo(x, y) {
+    if (!canvas) return;
     turtle.x = canvas.width / 2 + x;
     turtle.y = canvas.height / 2 - y;
+    drawTurtleMarker();
 }
 
 // ── Canvas utilities ─────────────────────────────────────────────
@@ -287,16 +299,13 @@ export function initResizer(handleId, leftPaneId, rightPaneId) {
         handle.classList.remove('dragging');
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        // Let the ResizeObserver on the canvas wrapper handle the canvas resize
         fitCanvasToWrapper();
     }
 
-    // Mouse events
     handle.addEventListener('mousedown', onStart);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onEnd);
 
-    // Touch events (MAUI WebView)
     handle.addEventListener('touchstart', onStart, { passive: false });
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);

@@ -1,10 +1,10 @@
-﻿/* ── Layout skeleton ───────────────────────────────────────────── */
+﻿/* ── CSS custom properties ─────────────────────────────────────── */
 :root {
     --toolbar-h: 52px;
     --header-h: 30px;
     --handle-w: 6px;
     --bg-editor: #1e1e1e;
-    --bg-canvas: #f5f5f5;
+    --bg-canvas: #2a2a2a;
     --bg-header: #2d2d2d;
     --col-header: #a0a0a0;
 }
@@ -12,54 +12,59 @@
 /* ── Toolbar ───────────────────────────────────────────────────── */
 .toolbar-bar {
     height: var(--toolbar-h);
+    flex-shrink: 0; /* never shrink — always exactly toolbar-h tall */
     position: sticky;
     top: 0;
     z-index: 100;
 }
 
-/* ── Outer ide body ─────────────────────────────────────────────── */
+/* ── IDE body — fills ALL remaining height after the toolbar ────── */
+/*   The parent chain (html → body → #app → mud wrappers) is fixed  */
+/*   to 100% height in app.css, so flex:1 + min-height:0 here       */
+/*   correctly stretches to the bottom of the viewport.              */
 .ide-body {
     display: flex;
     flex-direction: row;
-    height: calc(100vh - var(--toolbar-h));
+    flex: 1; /* grow to fill whatever the mud wrapper gives us */
+    min-height: 0; /* crucial: allow flex children to shrink/scroll  */
     overflow: hidden;
 }
 
-/* ── Left column ────────────────────────────────────────────────── */
+/* ── Left column: editor + console stacked, exactly 50% wide ───── */
 .left-column {
     display: flex;
     flex-direction: column;
-    width: 40%;
+    width: 50%;
     min-width: 220px;
-    max-width: 70%;
-    overflow: hidden;
+    max-width: 80%;
     flex-shrink: 0;
+    min-height: 0; /* allow column to shrink to fit parent */
+    overflow: hidden;
 }
 
-/* ── Editor pane — exactly 50% of left column height ───────────── */
+/* ── Editor pane — top half of the left column ─────────────────── */
 .editor-pane {
     display: flex;
     flex-direction: column;
-    flex: 1; /* 50% — shares equally with console-pane */
-    min-height: 0; /* required so flex child can shrink/scroll */
+    flex: 1; /* equal share with console-pane → 50% each */
+    min-height: 0;
     background: var(--bg-editor);
     overflow: hidden;
 }
 
-/* ── Console pane — exactly 50% of left column height ──────────── */
+/* ── Console pane — bottom half of the left column ─────────────── */
 .console-pane {
     display: flex;
     flex-direction: column;
-    flex: 1; /* 50% — shares equally with editor-pane */
-    min-height: 0; /* required so flex child can shrink/scroll */
+    flex: 1; /* equal share with editor-pane → 50% each */
+    min-height: 0;
     background: #1a1a1a;
     color: #ccc;
-    flex-shrink: 0; /* keeps it from collapsing when editor grows */
     border-top: 1px solid #333;
     overflow: hidden;
 }
 
-/* ── Pane header ───────────────────────────────────────────────── */
+/* ── Pane header strip ─────────────────────────────────────────── */
 .pane-header {
     display: flex;
     align-items: center;
@@ -72,7 +77,7 @@
     user-select: none;
 }
 
-/* ── Resize handle ─────────────────────────────────────────────── */
+/* ── Drag-resize handle ────────────────────────────────────────── */
 .resize-handle {
     width: var(--handle-w);
     background: #333;
@@ -97,42 +102,40 @@
     border-radius: 2px;
 }
 
-/* ── Canvas pane — fills all remaining horizontal space ────────── */
+/* ── Canvas pane — right half, full height ─────────────────────── */
 .canvas-pane {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    flex: 1; /* fills all width not taken by left-column + handle */
     min-width: 200px;
+    min-height: 0;
     background: var(--bg-canvas);
     overflow: hidden;
 }
 
     .canvas-pane .pane-header {
-        background: #e8e8e8;
-        color: #555;
+        background: #252525;
+        color: #999;
     }
 
-/* Canvas wrapper fills the entire remaining height of canvas-pane */
+/* ── Canvas wrapper — fills everything below the canvas header ─── */
 .canvas-wrapper {
     flex: 1;
     min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
     overflow: hidden;
     padding: 8px;
+    box-sizing: border-box;
 }
 
+/* Canvas is sized entirely by JS fitCanvasToWrapper() */
 #turtleCanvas {
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     display: block;
-    /* max size keeps it square and within the wrapper */
-    max-width: 100%;
-    max-height: 100%;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
 }
 
-/* ── Console output scroll area ────────────────────────────────── */
+/* ── Console output scrollable area ───────────────────────────── */
 .console-output {
     flex: 1;
     min-height: 0;
@@ -160,7 +163,7 @@
     margin-right: 4px;
 }
 
-/* ── Mirror editor layout ──────────────────────────────────────── */
+/* ── Mirror / syntax-highlight editor ─────────────────────────── */
 .mirror-wrapper {
     position: relative;
     flex: 1;

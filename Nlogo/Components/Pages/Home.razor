@@ -71,7 +71,7 @@
             </div>
         </div>
 
-        <!-- Console pane — sits directly below the editor, same width -->
+        <!-- Console pane -->
         <div class="console-pane">
             <div class="d-flex align-center px-2 pt-1">
                 <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" />
@@ -98,7 +98,7 @@
         <div class="resize-grip"></div>
     </div>
 
-    <!-- ── CANVAS PANE — fills remaining space ── -->
+    <!-- ── CANVAS PANE ── -->
     <div class="canvas-pane" id="canvasPane">
         <div class="pane-header">
             <MudIcon Icon="@Icons.Material.Filled.Brush" Size="Size.Small" />
@@ -135,9 +135,9 @@
                 "import", "./js/ideInterop.js");
 
             await _jsModule.InvokeVoidAsync("initCanvas", "turtleCanvas");
+            await _jsModule.InvokeVoidAsync("initEditor", "codeEditor");
             await _jsModule.InvokeVoidAsync("initResizer", "resizeHandle", "leftColumn", "canvasPane");
 
-            // initEditor is handled by the script in index.html
             Log("▶  Logo IDE ready.", isSystem: true);
         }
     }
