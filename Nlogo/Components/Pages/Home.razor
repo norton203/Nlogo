@@ -1,6 +1,8 @@
 ﻿@page "/"
 @using Nlogo.Compiler
+@using Nlogo.Services
 @inject IJSRuntime JS
+@inject ChallengeService ChallengeService
 @implements IAsyncDisposable
 
 <PageTitle>Logo IDE</PageTitle>
@@ -38,6 +40,23 @@
                Color="Color.Primary" Style="width:130px; margin-bottom:0" />
     <MudText Typo="Typo.caption">@_speed</MudText>
 
+    <MudDivider Vertical="true" FlexItem="true" />
+
+    <!-- ── Challenge toggle ── -->
+    <MudButton Variant="@(_challengePanelOpen ? Variant.Filled : Variant.Outlined)"
+               Color="Color.Secondary"
+               StartIcon="@Icons.Material.Filled.School"
+               OnClick="ToggleChallengePanel">
+        Challenges
+        @if (ChallengeService.TotalStars > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                     Class="ml-1" Style="height:18px;font-size:0.65rem">
+                ⭐ @ChallengeService.TotalStars
+            </MudChip>
+        }
+    </MudButton>
+
     <MudSpacer />
 
     <MudChip T="string" Color="Color.Dark" Size="Size.Small" Icon="@Icons.Material.Filled.Info">
@@ -52,6 +71,12 @@
     <!-- ── LEFT COLUMN: editor + console stacked ── -->
     <div class="left-column" id="leftColumn">
 
+        <!-- Challenge panel slides over the editor -->
+        <ChallengePanel JsModule="@_jsModule"
+                        IsOpen="@_challengePanelOpen"
+                        OnClose="@(() => _challengePanelOpen = false)"
+                        OnLoadCode="@LoadStarterCode" />
+
         <!-- Editor pane -->
         <div class="editor-pane">
             <div class="pane-header">
@@ -63,18 +88,8 @@
                                OnClick="CopyCode" />
             </div>
 
-            <!--
-                mirror-wrapper is now a flex row:
-                  ┌──────────┬──────────────────────────────────────┐
-                  │  gutter  │  editor-scroll-area                  │
-                  │ #lineNums│   (highlight-layer + code-editor)    │
-                  └──────────┴──────────────────────────────────────┘
-            -->
             <div class="mirror-wrapper">
-                <!-- Line-number gutter — scrolled by JS to match textarea -->
                 <div id="lineNumbers"></div>
-
-                <!-- Scroll area: highlight pre + transparent textarea stacked -->
                 <div class="editor-scroll-area">
                     <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
                     <textarea id="codeEditor"
@@ -132,9 +147,10 @@
 @code {
 
     // ── State ──────────────────────────────────────────────────────
-    private int _speed = 5;
-    private bool _isRunning = false;
-    private string _statusMessage = "Ready";
+    private int    _speed          = 5;
+    private bool   _isRunning      = false;
+    private bool   _challengePanelOpen = false;
+    private string _statusMessage  = "Ready";
 
     private readonly List<ConsoleLine> _consoleLines = new();
     private IJSObjectReference? _jsModule;
@@ -156,6 +172,19 @@
         }
     }
 
+    // ── Challenge panel ────────────────────────────────────────────
+    private void ToggleChallengePanel()
+        => _challengePanelOpen = !_challengePanelOpen;
+
+    private async Task LoadStarterCode(string code)
+    {
+        if (_jsModule is not null)
+            await _jsModule.InvokeVoidAsync("setEditorValue", code);
+        // Clear previous run output when loading fresh starter code
+        _consoleLines.Clear();
+        _statusMessage = "Ready";
+    }
+
     // ── Run ────────────────────────────────────────────────────────
     private async Task RunCode()
     {
@@ -164,7 +193,6 @@
         var code = await _jsModule.InvokeAsync<string>("getEditorValue");
         if (string.IsNullOrWhiteSpace(code)) { Log("Nothing to run.", isSystem: true); return; }
 
-        // Clear previous error highlights before each run
         await _jsModule.InvokeVoidAsync("clearErrorLines");
 
         _cts           = new CancellationTokenSource();
@@ -217,7 +245,6 @@
         {
             _statusMessage = "Runtime error";
             Log(ex.Message, isError: true);
-            // Runtime errors carry a line number in the message — extract it
             await MarkErrorLinesAsync(new[] { ex.Message });
         }
         catch (Exception ex)
@@ -234,9 +261,6 @@
         }
     }
 
-    /// <summary>
-    /// Parses "Line X:Y — ..." style messages and highlights those lines in the editor.
-    /// </summary>
     private async Task MarkErrorLinesAsync(IEnumerable<string> errors)
     {
         if (_jsModule is null) return;
@@ -244,8 +268,6 @@
         var lines = new List<int>();
         foreach (var msg in errors)
         {
-            // Format produced by Lexer/Parser: "Line 4:12 — Unexpected token..."
-            // Format produced by RuntimeException may also include "Line X"
             var match = System.Text.RegularExpressions.Regex.Match(msg, @"Line\s+(\d+)");
             if (match.Success && int.TryParse(match.Groups[1].Value, out int ln))
                 lines.Add(ln);
@@ -302,7 +324,7 @@
     // ── Types ──────────────────────────────────────────────────────
     private record ConsoleLine(
         string Text,
-        string Prefix = "  ",
-        bool IsError = false,
-        bool IsSystem = false);
+        string Prefix  = "  ",
+        bool   IsError  = false,
+        bool   IsSystem = false);
 }

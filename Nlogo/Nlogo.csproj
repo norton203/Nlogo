@@ -64,4 +64,8 @@
         <PackageReference Include="MudBlazor" Version="9.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Models\ChallengeModels\" />
+    </ItemGroup>
+
 </Project>

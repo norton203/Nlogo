@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
+using Nlogo.Services;
 
 namespace Nlogo
 {
@@ -17,6 +18,8 @@ namespace Nlogo
 
             builder.Services.AddMauiBlazorWebView();
             builder.Services.AddMudServices(); // Register mudblazor services
+            builder.Services.AddSingleton<ChallengeService>();
+
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();

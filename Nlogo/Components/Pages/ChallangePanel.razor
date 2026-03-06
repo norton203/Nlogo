@@ -1,0 +1,351 @@
+﻿@using Nlogo.Compiler
+@using Nlogo.Models
+@using Nlogo.Services
+@using System.Text.RegularExpressions
+@inject ChallengeService Svc
+@implements IDisposable
+
+<div class="challenge-panel @(IsOpen ? "panel-open" : "")">
+
+    @* ══════════ HEADER ══════════ *@
+    <div class="panel-header">
+        <div class="panel-title">
+            <span>🏆</span>
+            <span>Challenges</span>
+        </div>
+        <div class="panel-stats">
+            <div class="stat-pill">⭐ @Svc.TotalStars / @Svc.TotalPossible</div>
+            <div class="stat-pill">✅ @Svc.CompletedCount / @TotalCount</div>
+        </div>
+        <button class="close-btn" @onclick="ClosePanel" title="Close">✕</button>
+    </div>
+
+    @* ══════════ BODY ══════════ *@
+    <div class="panel-body">
+
+        @* ── Challenge list (left column) ── *@
+        <div class="challenge-list">
+            @foreach (var cat in Svc.Catalog)
+            {
+                <div class="cat-header">
+                    <span>@cat.Emoji</span>
+                    <span>@cat.Name</span>
+                </div>
+
+                @foreach (var ch in cat.Challenges)
+                {
+                    var prog = Svc.GetProgress(ch.Id);
+                    var unlocked = Svc.IsUnlocked(ch.Id);
+                    var stars = prog?.Stars ?? 0;
+                    var selected = ch == _current;
+
+                    <div class="ch-item @(selected ? "selected" : "") @(unlocked ? "" : "locked")"
+                         @onclick="@(() => SelectChallenge(ch, unlocked))">
+                        <span class="ch-emoji">@(unlocked? ch.Emoji: "🔒")</span>
+                        <div class="ch-info">
+                            <span class="ch-title">@ch.Title</span>
+                            @if (stars > 0)
+                            {
+                                <span class="ch-stars">@(new string('⭐', stars))</span>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        @* ── Detail view (right column) ── *@
+        <div class="challenge-detail">
+
+            @if (_current is null)
+            {
+                <div class="detail-empty">
+                    <div class="empty-icon">🐢</div>
+                    <div class="empty-msg">Select a challenge to begin!</div>
+                </div>
+            }
+            else
+            {
+                @* Title + timer *@
+                <div class="detail-header">
+                    <div class="detail-title-row">
+                        <span class="detail-emoji">@_current.Emoji</span>
+                        <span class="detail-title">@_current.Title</span>
+                    </div>
+                    <div class="timer-display @(_timerRunning ? "timer-active" : "")">
+                        ⏱ @FormatTime(_elapsed)
+                    </div>
+                </div>
+
+                @* Description *@
+                <div class="detail-description">
+                    @((MarkupString)RenderMarkdown(_current.Description))
+                </div>
+
+                @* Requirements checklist *@
+                <div class="detail-section">
+                    <div class="section-label">📋 Requirements</div>
+                    <div class="checklist">
+                        @for (int i = 0; i < _current.Checks.Length; i++)
+                        {
+                            var check = _current.Checks[i];
+                            var state = _lastResult is null ? "pending"
+                            : _lastResult.PassedChecks[i] ? "pass" : "fail";
+
+                            <div class="check-item @state">
+                                <span class="check-icon">
+                                    @(state == "pass" ? "✅" : state == "fail" ? "❌" : "○")
+                                </span>
+                                <span>@check.Requirement</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* Hints *@
+                <div class="detail-section">
+                    <button class="hint-toggle" @onclick="ToggleHints">
+                        💡 Hints
+                        <span class="hint-toggle-sub">
+                            @(_showHints ? "(tap to hide)" : "(tap to reveal)")
+                        </span>
+                    </button>
+
+                    @if (_showHints && _hintShown > 0)
+                    {
+                        <div class="hint-list">
+                            @for (int h = 0; h < _hintShown; h++)
+                            {
+                                <div class="hint-item">@_current.Hints[h]</div>
+                            }
+
+                            @if (_hintShown < _current.Hints.Length)
+                            {
+                                <button class="hint-more-btn" @onclick="ShowNextHint">
+                                    Show next hint (@_hintShown / @_current.Hints.Length shown)
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="hint-exhausted">All hints revealed!</div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @* Result feedback *@
+                @if (_lastResult is not null)
+                {
+                    <div class="result-panel @(_lastResult.Stars > 0 ? "result-success" : "result-fail")">
+                        <div class="result-stars">
+                            @for (int s = 0; s < 3; s++)
+                            {
+                                <span class="@(s < _lastResult.Stars ? "star filled" : "star empty")">★</span>
+                            }
+                        </div>
+                        <div class="result-msg">@_lastResult.Message</div>
+                    </div>
+                }
+
+                @* Action buttons *@
+                <div class="detail-actions">
+                    @if (_current.StarterCode is not null)
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Size="Size.Small"
+                                   Color="Color.Default"
+                                   OnClick="LoadStarterCode">
+                            📄 Starter Code
+                        </MudButton>
+                    }
+                    <MudButton Variant="Variant.Filled"
+                               Size="Size.Small"
+                               Color="Color.Primary"
+                               Disabled="@(JsModule is null || _checking)"
+                               OnClick="CheckWork"
+                               Class="check-work-btn">
+                        @(_checking ? "Checking..." : "✓ Check My Work")
+                    </MudButton>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
+
+@code {
+    // ── Parameters ─────────────────────────────────────────────────────────
+    [Parameter] public IJSObjectReference? JsModule { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<string> OnLoadCode { get; set; }
+
+    // ── UI state ───────────────────────────────────────────────────────────
+    private Challenge? _current;
+    private CheckResult? _lastResult;
+    private bool _showHints;
+    private int _hintShown;
+    private bool _checking;
+
+    // ── Timer ──────────────────────────────────────────────────────────────
+    private bool _timerRunning;
+    private DateTime _startTime;
+    private TimeSpan _elapsed;
+    private CancellationTokenSource _timerCts = new();
+
+    // ── Derived ────────────────────────────────────────────────────────────
+    private int TotalCount => Svc.Catalog.Sum(c => c.Challenges.Length);
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    protected override void OnInitialized()
+        => Svc.ProgressChanged += OnProgressChanged;
+
+    private void OnProgressChanged()
+        => InvokeAsync(StateHasChanged);
+
+    // ── Challenge selection ────────────────────────────────────────────────
+    private void SelectChallenge(Challenge ch, bool unlocked)
+    {
+        if (!unlocked || ch == _current) return;
+
+        _current    = ch;
+        _lastResult = null;
+        _showHints  = false;
+        _hintShown  = 0;
+
+        StopTimer();
+        _elapsed = TimeSpan.Zero;
+        StartTimer();
+    }
+
+    // ── Timer ──────────────────────────────────────────────────────────────
+    private void StartTimer()
+    {
+        _timerCts    = new CancellationTokenSource();
+        _timerRunning = true;
+        _startTime   = DateTime.Now;
+        _ = RunTimerAsync(_timerCts.Token);
+    }
+
+    private void StopTimer()
+    {
+        _timerCts.Cancel();
+        _timerRunning = false;
+    }
+
+    private async Task RunTimerAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(1000, ct);
+                _elapsed = DateTime.Now - _startTime;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { /* expected */ }
+    }
+
+    // ── Check My Work ──────────────────────────────────────────────────────
+    private async Task CheckWork()
+    {
+        if (_current is null || JsModule is null) return;
+
+        _checking = true;
+        StateHasChanged();
+
+        try
+        {
+            // 1. Get source code from editor
+            var code = await JsModule.InvokeAsync<string>("getEditorValue");
+
+            // 2. Lex + parse to check for syntax errors
+            var lexer = new Lexer(code);
+            lexer.Tokenise();
+            bool parsedOk = !lexer.HasErrors;
+            if (parsedOk)
+            {
+                var parser = new Parser(lexer.Tokens);
+                parser.Parse();
+                parsedOk = !parser.HasErrors;
+            }
+
+            // 3. Snapshot canvas stats
+            var stats = await JsModule.InvokeAsync<CanvasStats>("getCanvasStats");
+
+            // 4. Validate against challenge checks
+            var result = Svc.Validate(_current, code, stats, parsedOk);
+            _lastResult = result;
+
+            // 5. Persist best progress
+            Svc.SaveProgress(_current.Id, result.Stars, _elapsed);
+
+            // 6. Stop timer on success
+            if (result.Stars > 0)
+                StopTimer();
+        }
+        finally
+        {
+            _checking = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Load starter code ──────────────────────────────────────────────────
+    private async Task LoadStarterCode()
+    {
+        if (_current?.StarterCode is null) return;
+        await OnLoadCode.InvokeAsync(_current.StarterCode);
+
+        _lastResult = null;
+        StopTimer();
+        _elapsed = TimeSpan.Zero;
+        StartTimer();
+    }
+
+    // ── Hints ──────────────────────────────────────────────────────────────
+    private void ToggleHints()
+    {
+        _showHints = !_showHints;
+        if (_showHints && _hintShown == 0 && (_current?.Hints.Length ?? 0) > 0)
+            _hintShown = 1;
+    }
+
+    private void ShowNextHint()
+    {
+        if (_current is not null && _hintShown < _current.Hints.Length)
+            _hintShown++;
+    }
+
+    private void ClosePanel() => OnClose.InvokeAsync();
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    private static string FormatTime(TimeSpan t)
+        => $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}";
+
+    /// <summary>
+    /// Converts a small subset of Markdown to HTML for challenge descriptions.
+    /// Supports: ```blocks```, **bold**, `inline code`, and \n\n paragraphs.
+    /// </summary>
+    private static string RenderMarkdown(string md)
+    {
+        // Fenced code blocks first (before inline replacements)
+        md = Regex.Replace(md, @"```\n?([\s\S]+?)```",
+                           "<pre><code>$1</code></pre>", RegexOptions.Multiline);
+        // Bold
+        md = Regex.Replace(md, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        // Inline code
+        md = Regex.Replace(md, @"`([^`]+)`", "<code>$1</code>");
+        // Paragraphs
+        var parts = md.Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
+        return string.Join("", parts.Select(p => $"<p>{p.Replace("\n", "<br/>")}</p>"));
+    }
+
+    // ── Cleanup ────────────────────────────────────────────────────────────
+    public void Dispose()
+    {
+        Svc.ProgressChanged -= OnProgressChanged;
+        StopTimer();
+    }
+}
