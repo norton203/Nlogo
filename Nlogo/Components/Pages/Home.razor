@@ -43,7 +43,7 @@
     <MudDivider Vertical="true" FlexItem="true" />
 
     <!-- ── Challenge toggle ── -->
-    <MudButton Variant="@(_challengePanelOpen ? Variant.Filled : Variant.Outlined)"
+    <MudButton Variant="@(_challengePanelOpen? Variant.Filled: Variant.Outlined)"
                Color="Color.Secondary"
                StartIcon="@Icons.Material.Filled.School"
                OnClick="ToggleChallengePanel">
@@ -147,10 +147,10 @@
 @code {
 
     // ── State ──────────────────────────────────────────────────────
-    private int    _speed          = 5;
-    private bool   _isRunning      = false;
-    private bool   _challengePanelOpen = false;
-    private string _statusMessage  = "Ready";
+    private int _speed = 5;
+    private bool _isRunning = false;
+    private bool _challengePanelOpen = false;
+    private string _statusMessage = "Ready";
 
     private readonly List<ConsoleLine> _consoleLines = new();
     private IJSObjectReference? _jsModule;
@@ -168,6 +168,11 @@
             await _jsModule.InvokeVoidAsync("initEditor", "codeEditor");
             await _jsModule.InvokeVoidAsync("initResizer", "resizeHandle", "leftColumn", "canvasPane");
 
+            // Load persisted progress — triggers ProgressChanged so the
+            // toolbar star count and challenge panel unlock states update.
+            await ChallengeService.EnsureLoadedAsync();
+            StateHasChanged();
+
             Log("▶  Logo IDE ready.", isSystem: true);
         }
     }
@@ -180,7 +185,6 @@
     {
         if (_jsModule is not null)
             await _jsModule.InvokeVoidAsync("setEditorValue", code);
-        // Clear previous run output when loading fresh starter code
         _consoleLines.Clear();
         _statusMessage = "Ready";
     }
@@ -203,7 +207,6 @@
 
         try
         {
-            // ── Lex ───────────────────────────────────────────────
             var lexer = new Lexer(code);
             lexer.Tokenise();
             if (lexer.HasErrors)
@@ -213,7 +216,6 @@
                 return;
             }
 
-            // ── Parse ─────────────────────────────────────────────
             var parser = new Parser(lexer.Tokens);
             var ast = parser.Parse();
             if (parser.HasErrors)
@@ -223,7 +225,6 @@
                 return;
             }
 
-            // ── Interpret ─────────────────────────────────────────
             var interpreter = new Interpreter(
                 js: _jsModule,
                 log: msg => Log(msg),
@@ -264,20 +265,18 @@
     private async Task MarkErrorLinesAsync(IEnumerable<string> errors)
     {
         if (_jsModule is null) return;
-
         var lines = new List<int>();
         foreach (var msg in errors)
         {
-            var match = System.Text.RegularExpressions.Regex.Match(msg, @"Line\s+(\d+)");
-            if (match.Success && int.TryParse(match.Groups[1].Value, out int ln))
+            var m = System.Text.RegularExpressions.Regex.Match(msg, @"Line\s+(\d+)");
+            if (m.Success && int.TryParse(m.Groups[1].Value, out int ln))
                 lines.Add(ln);
         }
-
         if (lines.Count > 0)
             await _jsModule.InvokeVoidAsync("setErrorLines", lines.Distinct().ToArray());
     }
 
-    // ── Other toolbar actions ──────────────────────────────────────
+    // ── Toolbar actions ────────────────────────────────────────────
     private void StopCode() => _cts?.Cancel();
 
     private async Task ClearCanvas()
@@ -321,10 +320,9 @@
             await _jsModule.DisposeAsync();
     }
 
-    // ── Types ──────────────────────────────────────────────────────
     private record ConsoleLine(
         string Text,
-        string Prefix  = "  ",
-        bool   IsError  = false,
-        bool   IsSystem = false);
+        string Prefix = "  ",
+        bool IsError = false,
+        bool IsSystem = false);
 }

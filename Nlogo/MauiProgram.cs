@@ -18,6 +18,7 @@ namespace Nlogo
 
             builder.Services.AddMauiBlazorWebView();
             builder.Services.AddMudServices(); // Register mudblazor services
+            builder.Services.AddSingleton<ProgressPersistenceService>();
             builder.Services.AddSingleton<ChallengeService>();
 
 
