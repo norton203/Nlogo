@@ -3,34 +3,36 @@
     --toolbar-h: 52px;
     --header-h: 30px;
     --handle-w: 6px;
+    --gutter-w: 44px; /* width of the line-number gutter   */
     --bg-editor: #1e1e1e;
     --bg-canvas: #2a2a2a;
     --bg-header: #2d2d2d;
     --col-header: #a0a0a0;
+    --col-gutter: #858585; /* line number text colour           */
+    --bg-gutter: #252526; /* gutter background                 */
+    --bg-err-line: rgba(255, 80, 80, 0.18); /* error line tint   */
+    --col-err-ln: #f48771; /* error line-number text            */
 }
 
 /* ── Toolbar ───────────────────────────────────────────────────── */
 .toolbar-bar {
     height: var(--toolbar-h);
-    flex-shrink: 0; /* never shrink — always exactly toolbar-h tall */
+    flex-shrink: 0;
     position: sticky;
     top: 0;
     z-index: 100;
 }
 
-/* ── IDE body — fills ALL remaining height after the toolbar ────── */
-/*   The parent chain (html → body → #app → mud wrappers) is fixed  */
-/*   to 100% height in app.css, so flex:1 + min-height:0 here       */
-/*   correctly stretches to the bottom of the viewport.              */
+/* ── IDE body ───────────────────────────────────────────────────── */
 .ide-body {
     display: flex;
     flex-direction: row;
-    flex: 1; /* grow to fill whatever the mud wrapper gives us */
-    min-height: 0; /* crucial: allow flex children to shrink/scroll  */
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
-/* ── Left column: editor + console stacked, exactly 50% wide ───── */
+/* ── Left column ────────────────────────────────────────────────── */
 .left-column {
     display: flex;
     flex-direction: column;
@@ -38,25 +40,25 @@
     min-width: 220px;
     max-width: 80%;
     flex-shrink: 0;
-    min-height: 0; /* allow column to shrink to fit parent */
+    min-height: 0;
     overflow: hidden;
 }
 
-/* ── Editor pane — top half of the left column ─────────────────── */
+/* ── Editor pane ────────────────────────────────────────────────── */
 .editor-pane {
     display: flex;
     flex-direction: column;
-    flex: 1; /* equal share with console-pane → 50% each */
+    flex: 1;
     min-height: 0;
     background: var(--bg-editor);
     overflow: hidden;
 }
 
-/* ── Console pane — bottom half of the left column ─────────────── */
+/* ── Console pane ───────────────────────────────────────────────── */
 .console-pane {
     display: flex;
     flex-direction: column;
-    flex: 1; /* equal share with editor-pane → 50% each */
+    flex: 1;
     min-height: 0;
     background: #1a1a1a;
     color: #ccc;
@@ -64,7 +66,7 @@
     overflow: hidden;
 }
 
-/* ── Pane header strip ─────────────────────────────────────────── */
+/* ── Pane header ───────────────────────────────────────────────── */
 .pane-header {
     display: flex;
     align-items: center;
@@ -77,7 +79,7 @@
     user-select: none;
 }
 
-/* ── Drag-resize handle ────────────────────────────────────────── */
+/* ── Resize handle ─────────────────────────────────────────────── */
 .resize-handle {
     width: var(--handle-w);
     background: #333;
@@ -102,11 +104,11 @@
     border-radius: 2px;
 }
 
-/* ── Canvas pane — right half, full height ─────────────────────── */
+/* ── Canvas pane ────────────────────────────────────────────────── */
 .canvas-pane {
     display: flex;
     flex-direction: column;
-    flex: 1; /* fills all width not taken by left-column + handle */
+    flex: 1;
     min-width: 200px;
     min-height: 0;
     background: var(--bg-canvas);
@@ -118,7 +120,6 @@
         color: #999;
     }
 
-/* ── Canvas wrapper — fills everything below the canvas header ─── */
 .canvas-wrapper {
     flex: 1;
     min-height: 0;
@@ -128,14 +129,13 @@
     box-sizing: border-box;
 }
 
-/* Canvas is sized entirely by JS fitCanvasToWrapper() */
 #turtleCanvas {
     display: block;
     background: #ffffff;
     box-shadow: 0 2px 12px rgba(0,0,0,0.4);
 }
 
-/* ── Console output scrollable area ───────────────────────────── */
+/* ── Console output ─────────────────────────────────────────────── */
 .console-output {
     flex: 1;
     min-height: 0;
@@ -163,15 +163,64 @@
     margin-right: 4px;
 }
 
-/* ── Mirror / syntax-highlight editor ─────────────────────────── */
+/* ════════════════════════════════════════════════════════════════
+   Mirror editor — three-layer stack inside .mirror-wrapper:
+     1. #lineNumbers  (gutter, left edge, non-scrollable horizontally)
+     2. #highlightLayer  (coloured pre, scrolls with textarea)
+     3. #codeEditor   (transparent textarea on top, captures input)
+   ════════════════════════════════════════════════════════════════ */
 .mirror-wrapper {
     position: relative;
     flex: 1;
     min-height: 0;
     overflow: hidden;
     background: var(--bg-editor);
+    display: flex; /* row: gutter | (pre + textarea stacked) */
+    flex-direction: row;
 }
 
+/* ── Line-number gutter ─────────────────────────────────────────── */
+#lineNumbers {
+    width: var(--gutter-w);
+    flex-shrink: 0;
+    background: var(--bg-gutter);
+    color: var(--col-gutter);
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 12px 8px 12px 0;
+    text-align: right;
+    overflow: hidden; /* scroll is driven by JS to match textarea */
+    user-select: none;
+    border-right: 1px solid #333;
+    box-sizing: border-box;
+}
+
+    /* each line number sits in its own div */
+    #lineNumbers div {
+        height: calc(14px * 1.6); /* font-size × line-height */
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 8px;
+    }
+
+        /* error line number — red tint + red text */
+        #lineNumbers div.ln-error {
+            color: var(--col-err-ln);
+            background: var(--bg-err-line);
+            font-weight: 600;
+        }
+
+/* ── Highlight + textarea container (fills space right of gutter) ── */
+.editor-scroll-area {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* ── Syntax-highlight pre ───────────────────────────────────────── */
 .highlight-layer {
     position: absolute;
     top: 0;
@@ -200,6 +249,16 @@
         padding: 0;
     }
 
+        /* each source line is wrapped in a <span> by JS */
+        .highlight-layer code span.line-error {
+            display: block; /* span must be block to fill width */
+            background: var(--bg-err-line);
+            border-left: 2px solid #f48771;
+            margin-left: -2px;
+            padding-left: 2px;
+        }
+
+/* ── Transparent textarea (on top, captures keystrokes) ─────────── */
 .code-editor {
     position: absolute;
     top: 0;

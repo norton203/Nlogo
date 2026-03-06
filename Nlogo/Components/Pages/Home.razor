@@ -62,12 +62,26 @@
                                Size="Size.Small" Title="Copy code"
                                OnClick="CopyCode" />
             </div>
+
+            <!--
+                mirror-wrapper is now a flex row:
+                  ┌──────────┬──────────────────────────────────────┐
+                  │  gutter  │  editor-scroll-area                  │
+                  │ #lineNums│   (highlight-layer + code-editor)    │
+                  └──────────┴──────────────────────────────────────┘
+            -->
             <div class="mirror-wrapper">
-                <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
-                <textarea id="codeEditor"
-                          class="code-editor"
-                          spellcheck="false"
-                          placeholder="; Write Logo code here..."></textarea>
+                <!-- Line-number gutter — scrolled by JS to match textarea -->
+                <div id="lineNumbers"></div>
+
+                <!-- Scroll area: highlight pre + transparent textarea stacked -->
+                <div class="editor-scroll-area">
+                    <pre id="highlightLayer" class="highlight-layer" aria-hidden="true"><code id="highlightCode"></code></pre>
+                    <textarea id="codeEditor"
+                              class="code-editor"
+                              spellcheck="false"
+                              placeholder="; Write Logo code here..."></textarea>
+                </div>
             </div>
         </div>
 
@@ -142,21 +156,16 @@
         }
     }
 
-    // ── Toolbar Actions ────────────────────────────────────────────
+    // ── Run ────────────────────────────────────────────────────────
     private async Task RunCode()
     {
-        if (_jsModule is null)
-        {
-            Log("Editor not ready yet.", isSystem: true);
-            return;
-        }
+        if (_jsModule is null) { Log("Editor not ready.", isSystem: true); return; }
 
         var code = await _jsModule.InvokeAsync<string>("getEditorValue");
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            Log("Nothing to run.", isSystem: true);
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(code)) { Log("Nothing to run.", isSystem: true); return; }
+
+        // Clear previous error highlights before each run
+        await _jsModule.InvokeVoidAsync("clearErrorLines");
 
         _cts           = new CancellationTokenSource();
         _isRunning     = true;
@@ -166,22 +175,27 @@
 
         try
         {
+            // ── Lex ───────────────────────────────────────────────
             var lexer = new Lexer(code);
             lexer.Tokenise();
             if (lexer.HasErrors)
             {
                 foreach (var e in lexer.Errors) Log(e, isError: true);
+                await MarkErrorLinesAsync(lexer.Errors);
                 return;
             }
 
+            // ── Parse ─────────────────────────────────────────────
             var parser = new Parser(lexer.Tokens);
             var ast = parser.Parse();
             if (parser.HasErrors)
             {
                 foreach (var e in parser.Errors) Log(e, isError: true);
+                await MarkErrorLinesAsync(parser.Errors);
                 return;
             }
 
+            // ── Interpret ─────────────────────────────────────────
             var interpreter = new Interpreter(
                 js: _jsModule,
                 log: msg => Log(msg),
@@ -203,6 +217,8 @@
         {
             _statusMessage = "Runtime error";
             Log(ex.Message, isError: true);
+            // Runtime errors carry a line number in the message — extract it
+            await MarkErrorLinesAsync(new[] { ex.Message });
         }
         catch (Exception ex)
         {
@@ -218,13 +234,34 @@
         }
     }
 
+    /// <summary>
+    /// Parses "Line X:Y — ..." style messages and highlights those lines in the editor.
+    /// </summary>
+    private async Task MarkErrorLinesAsync(IEnumerable<string> errors)
+    {
+        if (_jsModule is null) return;
+
+        var lines = new List<int>();
+        foreach (var msg in errors)
+        {
+            // Format produced by Lexer/Parser: "Line 4:12 — Unexpected token..."
+            // Format produced by RuntimeException may also include "Line X"
+            var match = System.Text.RegularExpressions.Regex.Match(msg, @"Line\s+(\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int ln))
+                lines.Add(ln);
+        }
+
+        if (lines.Count > 0)
+            await _jsModule.InvokeVoidAsync("setErrorLines", lines.Distinct().ToArray());
+    }
+
+    // ── Other toolbar actions ──────────────────────────────────────
     private void StopCode() => _cts?.Cancel();
 
     private async Task ClearCanvas()
     {
         if (_jsModule is not null)
             await _jsModule.InvokeVoidAsync("clearCanvas");
-
         _statusMessage = "Ready";
         Log("Canvas cleared.", isSystem: true);
     }
@@ -244,15 +281,14 @@
             await _jsModule.InvokeVoidAsync("saveCanvasImage", "logo-drawing.png");
     }
 
-    // ── Console Helpers ────────────────────────────────────────────
+    // ── Console helpers ────────────────────────────────────────────
     private void Log(string text, bool isError = false, bool isSystem = false)
     {
         _consoleLines.Add(new ConsoleLine(
             Text: text,
             Prefix: isSystem ? "» " : isError ? "✖ " : "  ",
             IsError: isError,
-            IsSystem: isSystem
-        ));
+            IsSystem: isSystem));
         StateHasChanged();
     }
 
@@ -268,6 +304,5 @@
         string Text,
         string Prefix = "  ",
         bool IsError = false,
-        bool IsSystem = false
-    );
+        bool IsSystem = false);
 }
