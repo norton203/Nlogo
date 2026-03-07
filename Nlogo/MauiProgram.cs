@@ -17,14 +17,19 @@ namespace Nlogo
                 });
 
             builder.Services.AddMauiBlazorWebView();
-            builder.Services.AddMudServices(); // Register mudblazor services
-            builder.Services.AddSingleton<ProgressPersistenceService>();
+            builder.Services.AddMudServices();
+
+            // ── Core services ──────────────────────────────────────────────
             builder.Services.AddSingleton<ChallengeService>();
 
+            // ── Teacher portal / offline submission services ───────────────
+            builder.Services.AddSingleton<StudentSettingsService>();
+            builder.Services.AddSingleton<ImportService>();
+            builder.Services.AddScoped<OfflineExportService>();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();

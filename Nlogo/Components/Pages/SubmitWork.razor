@@ -1,0 +1,253 @@
+﻿@page "/submit"
+@using Nlogo.Models
+@using Nlogo.Services
+@inject ChallengeService ChallengeService
+@inject OfflineExportService ExportService
+@inject StudentSettingsService SettingsService
+@inject NavigationManager Nav
+
+<PageTitle>Submit Work — Logo IDE</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <MudPaper Elevation="3" Class="pa-4 mb-4 d-flex align-center gap-3">
+        <MudIcon Icon="@Icons.Material.Filled.Email" Color="Color.Primary" Size="Size.Large" />
+        <div>
+            <MudText Typo="Typo.h5">Submit Work by Email</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Send your completed challenges to your teacher
+            </MudText>
+        </div>
+    </MudPaper>
+
+    <!-- ── Progress summary ───────────────────────────────────── -->
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">
+            <b>Your Progress</b>
+        </MudText>
+
+        @if (_completedChallenges.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                You haven't completed any challenges yet. Go back to the IDE and
+                complete at least one challenge before submitting!
+            </MudAlert>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-3">
+                @_completedChallenges.Count challenge(s) will be included in this submission:
+            </MudText>
+
+            <MudSimpleTable Dense="true" Striped="true" Bordered="true">
+                <thead>
+                    <tr>
+                        <th>Challenge</th>
+                        <th>Stars</th>
+                        <th>Best Time</th>
+                        <th>Completed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (ch, prog) in _completedChallenges)
+                    {
+                        <tr>
+                            <td>@ch.Emoji @ch.Title</td>
+                            <td>@(new string('⭐', prog.Stars))</td>
+                            <td>@FormatTime(prog.BestTime)</td>
+                            <td>@prog.CompletedAt.ToString("dd MMM HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+
+    <!-- ── Student settings ───────────────────────────────────── -->
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Your Details</b></MudText>
+
+        <MudTextField @bind-Value="_settings.StudentName"
+                      Label="Your Name"
+                      Placeholder="e.g. Jamie Smith"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Person"
+                      Class="mb-3" />
+
+        <MudTextField @bind-Value="_settings.TeacherEmail"
+                      Label="Teacher's Email Address"
+                      Placeholder="teacher@school.ac.uk"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.AlternateEmail"
+                      InputType="InputType.Email"
+                      Class="mb-3" />
+
+        <MudTextField @bind-Value="_settings.ClassInviteCode"
+                      Label="Class Code (optional)"
+                      Placeholder="e.g. MATH3B"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Class"
+                      Class="mb-2" />
+
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            These details are saved on your device for future submissions.
+        </MudText>
+    </MudPaper>
+
+    <!-- ── Result banner ──────────────────────────────────────── -->
+    @if (_result is not null)
+    {
+        <MudAlert Severity="@(_result.Success? Severity.Success: Severity.Error)"
+                  Class="mb-4"
+                  ShowCloseIcon="true"
+                  CloseIconClicked="() => _result = null">
+            @if (_result.Success)
+            {
+                <span>
+                    ✅ Your submission file was created and your email app should have opened.
+                    If it didn't open automatically, use the <b>Share</b> button below.
+                </span>
+            }
+            else
+            {
+                <span>⚠️ @_result.ErrorMessage</span>
+            }
+        </MudAlert>
+    }
+
+    @if (_noEmailApp)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            No email app was found on this device. Use the <b>Share File</b> button
+            to send your submission via Teams, WhatsApp, or another app.
+        </MudAlert>
+    }
+
+    <!-- ── Action buttons ─────────────────────────────────────── -->
+    <MudPaper Elevation="1" Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Send Submission</b></MudText>
+
+        <div class="d-flex gap-3 flex-wrap">
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Email"
+                       Disabled="@(_isBusy || _completedChallenges.Count == 0)"
+                       OnClick="HandleEmailSubmit">
+                @if (_isBusy)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <span>Preparing...</span>
+                }
+                else
+                {
+                    <span>Send via Email</span>
+                }
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Share"
+                       Disabled="@(_isBusy || _completedChallenges.Count == 0)"
+                       OnClick="HandleShareSubmit">
+                Share File
+            </MudButton>
+
+        </div>
+
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+            "Send via Email" opens your email app with the file already attached.
+            "Share File" lets you send it via Teams, WhatsApp, and so on.
+        </MudText>
+    </MudPaper>
+
+    <!-- ── Back button ────────────────────────────────────────── -->
+    <MudButton Variant="Variant.Text"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="@(() => Nav.NavigateTo("/"))">
+        Back to IDE
+    </MudButton>
+
+</MudContainer>
+
+@code {
+    private StudentSettings _settings = new();
+    private List<(Challenge Ch, ChallengeProgress Prog)> _completedChallenges = [];
+    private EmailSendResult? _result;
+    private bool _isBusy;
+    private bool _noEmailApp;
+
+    protected override void OnInitialized()
+    {
+        _settings = SettingsService.Load();
+        LoadCompletedChallenges();
+    }
+
+    private void LoadCompletedChallenges()
+    {
+        _completedChallenges = [];
+        foreach (var cat in ChallengeService.Catalog)
+        {
+            foreach (var ch in cat.Challenges)
+            {
+                var prog = ChallengeService.GetProgress(ch.Id);
+                if (prog is not null && prog.Stars > 0)
+                    _completedChallenges.Add((ch, prog));
+            }
+        }
+    }
+
+    private async Task HandleEmailSubmit()
+    {
+        SaveSettings();
+        _isBusy = true;
+        _result = null;
+        _noEmailApp = false;
+        StateHasChanged();
+
+        try
+        {
+            _result = await ExportService.SendViaEmailAsync();
+
+            // If the export service fell back to the share sheet because
+            // no email client was found, show the informational banner.
+            if (!_result.Success &&
+                _result.ErrorMessage?.Contains("email") == true)
+            {
+                _noEmailApp = true;
+            }
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task HandleShareSubmit()
+    {
+        SaveSettings();
+        _isBusy = true;
+        _result = null;
+        StateHasChanged();
+
+        try
+        {
+            _result = await ExportService.ShareViaShareSheetAsync();
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void SaveSettings() => SettingsService.Save(_settings);
+
+    private static string FormatTime(TimeSpan t) =>
+        $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}";
+}

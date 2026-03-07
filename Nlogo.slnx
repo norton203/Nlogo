@@ -1,3 +1,5 @@
 <Solution>
-  <Project Path="Nlogo/Nlogo.csproj" />
+  <Project Path="Nlogo/Nlogo.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
 </Solution>

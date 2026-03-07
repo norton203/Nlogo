@@ -1,0 +1,83 @@
+﻿@using Nlogo.Models
+
+<MudTable Items="_grouped"
+          Dense="true"
+          Striped="true"
+          Bordered="true"
+          Hover="true"
+          Class="mt-2">
+    <HeaderContent>
+        <MudTh>Student</MudTh>
+        <MudTh>Challenges</MudTh>
+        <MudTh>Total Stars</MudTh>
+        <MudTh>Last Submission</MudTh>
+        <MudTh>Source</MudTh>
+        <MudTh>Integrity</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.StudentName</MudTd>
+        <MudTd>@context.ChallengeCount</MudTd>
+        <MudTd>@(new string('⭐', context.TotalStars))</MudTd>
+        <MudTd>@context.LastSubmission.ToString("dd MMM HH:mm")</MudTd>
+        <MudTd>
+            @if (context.ViaEmail)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Info">📧 Email</MudChip>
+            }
+        </MudTd>
+        <MudTd>
+            @if (context.HasIntegrityWarning)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning">⚠️ Modified</MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Success">✓ OK</MudChip>
+            }
+        </MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small"
+                       Variant="Variant.Text"
+                       OnClick="@(() => OnSelectStudent.InvokeAsync(context.StudentName))">
+                View
+            </MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    [Parameter] public List<ImportedSubmission> Submissions { get; set; } = [];
+    [Parameter] public EventCallback<string> OnSelectStudent { get; set; }
+
+    private List<StudentSummary> _grouped = [];
+
+    protected override void OnParametersSet() => BuildGroups();
+
+    private void BuildGroups()
+    {
+        _grouped = Submissions
+            .GroupBy(s => s.StudentName)
+            .Select(g => new StudentSummary
+            {
+                StudentName          = g.Key,
+                ChallengeCount       = g.Count(),
+                TotalStars           = g.Sum(s => s.Stars),
+                LastSubmission       = g.Max(s => s.CompletedAt),
+                ViaEmail             = g.Any(s => s.ImportedViaEmail),
+                HasIntegrityWarning  = g.Any(s => !s.ChecksumValid)
+            })
+            .OrderBy(s => s.StudentName)
+            .ToList();
+    }
+
+    private sealed class StudentSummary
+    {
+        public string StudentName { get; init; } = string.Empty;
+        public int ChallengeCount { get; init; }
+        public int TotalStars { get; init; }
+        public DateTime LastSubmission { get; init; }
+        public bool ViaEmail { get; init; }
+        public bool HasIntegrityWarning { get; init; }
+    }
+}

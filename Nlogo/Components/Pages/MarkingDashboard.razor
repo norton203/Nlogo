@@ -1,0 +1,266 @@
+﻿@page "/marking"
+@using Nlogo.Models
+@using Nlogo.Services
+@inject ImportService ImportService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Marking Dashboard — Logo IDE</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+
+    <!-- ── Header bar ─────────────────────────────────────────── -->
+    <MudPaper Elevation="3" Class="pa-3 mb-4 d-flex align-center gap-3 flex-wrap">
+
+        <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
+        <div class="flex-grow-1">
+            <MudText Typo="Typo.h5">Marking Dashboard</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Import student submissions and review their work
+            </MudText>
+        </div>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.FileUpload"
+                   Disabled="@_importing"
+                   OnClick="HandleImport">
+            @if (_importing)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Importing…</span>
+            }
+            else
+            {
+                <span>Import .logowork File</span>
+            }
+        </MudButton>
+
+        @if (ImportService.All.Count > 0)
+        {
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.DeleteSweep"
+                       OnClick="ConfirmClearAll">
+                Clear All
+            </MudButton>
+        }
+
+        <MudButton Variant="Variant.Text"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Nav.NavigateTo("/"))">
+            IDE
+        </MudButton>
+
+    </MudPaper>
+
+    <!-- ── Import result banner ───────────────────────────────── -->
+    @if (_lastImport is not null)
+    {
+        <MudAlert Severity="@ImportSeverity(_lastImport)"
+                  Class="mb-4"
+                  ShowCloseIcon="true"
+                  CloseIconClicked="() => _lastImport = null">
+
+            @if (_lastImport.Success)
+            {
+                <b>@_lastImport.StudentName</b> —
+                @_lastImport.SubmissionCount submission(s) imported.
+                @if (_lastImport.DuplicatesSkipped > 0)
+                {
+                    <span> (@_lastImport.DuplicatesSkipped duplicate(s) skipped.)</span>
+                }
+                @if (_lastImport.TamperedWarning)
+                {
+                    <MudText Color="Color.Warning">
+                        ⚠️ File integrity check failed — this file may have been edited after export.
+                    </MudText>
+                }
+                @if (_lastImport.UnmatchedClass)
+                {
+                    <MudText Color="Color.Warning">
+                        ⚠️ Class code not recognised — student placed in Unmatched group.
+                    </MudText>
+                }
+            }
+            else
+            {
+                <span>❌ Import failed: @_lastImport.ErrorMessage</span>
+            }
+
+        </MudAlert>
+    }
+
+    <!-- ── Empty state ────────────────────────────────────────── -->
+    @if (ImportService.All.Count == 0)
+    {
+        <MudPaper Elevation="1" Class="pa-8 text-center">
+            <MudIcon Icon="@Icons.Material.Filled.Inbox"
+                     Style="font-size:4rem; color:var(--mud-palette-text-disabled)" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+                No submissions yet
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Click <b>Import .logowork File</b> to load a student submission received by email.
+            </MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <!-- ── Student tabs ────────────────────────────────────── -->
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4">
+
+            <MudTabPanel Text="All Students" Icon="@Icons.Material.Filled.Group">
+                <StudentSummaryTable Submissions="ImportService.All.ToList()"
+                                     OnSelectStudent="SelectStudent" />
+            </MudTabPanel>
+
+            @foreach (var name in ImportService.StudentNames)
+            {
+                <MudTabPanel Text="@name" Icon="@Icons.Material.Filled.Person">
+                    <StudentDetailView StudentName="@name"
+                                       Submissions="ImportService.ForStudent(name).ToList()"
+                                       OnViewCode="ShowCode" />
+                </MudTabPanel>
+            }
+
+        </MudTabs>
+    }
+
+</MudContainer>
+
+<!-- ── Code viewer dialog ─────────────────────────────────────── -->
+<MudDialog @bind-Visible="_codeDialogOpen"
+           Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @_codeDialogTitle
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_selectedCode is not null)
+        {
+            <MudPaper Elevation="0" Class="pa-3" Style="background:#1e1e1e; border-radius:4px; overflow:auto">
+                <pre style="color:#d4d4d4; font-family:monospace; margin:0; white-space:pre-wrap">@_selectedCode</pre>
+            </MudPaper>
+
+            <div class="d-flex gap-2 mt-2 flex-wrap">
+                <MudChip T="string" Size="Size.Small">
+                    ⏱ @FormatTime(TimeSpan.FromSeconds(_selectedSub?.TimeTakenSeconds ?? 0))
+                </MudChip>
+                <MudChip T="string" Size="Size.Small">
+                    ⭐ @(new string('⭐', _selectedSub?.Stars ?? 0))
+                </MudChip>
+                <MudChip T="string" Size="Size.Small">
+                    📅 @_selectedSub?.CompletedAt.ToString("dd MMM yyyy HH:mm")
+                </MudChip>
+                @if (_selectedSub?.ImportedViaEmail == true)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">📧 Email submission</MudChip>
+                }
+                @if (_selectedSub?.ChecksumValid == false)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">⚠️ Integrity warning</MudChip>
+                }
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _codeDialogOpen = false)">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- ── Confirm clear dialog ───────────────────────────────────── -->
+<MudDialog @bind-Visible="_confirmClearOpen">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Clear all submissions?</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText>
+            This will remove all @ImportService.All.Count imported submission(s) from
+            the dashboard. This cannot be undone (the original .logowork files are unaffected).
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _confirmClearOpen = false)">Cancel</MudButton>
+        <MudButton Color="Color.Error" OnClick="DoClearAll">Clear All</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private bool _importing;
+    private ImportResult? _lastImport;
+
+    // Code viewer
+    private bool _codeDialogOpen;
+    private string _codeDialogTitle = string.Empty;
+    private string? _selectedCode;
+    private ImportedSubmission? _selectedSub;
+
+    // Confirm clear
+    private bool _confirmClearOpen;
+
+    protected override void OnInitialized()
+        => ImportService.SubmissionsChanged += OnSubmissionsChanged;
+
+    public void Dispose()
+        => ImportService.SubmissionsChanged -= OnSubmissionsChanged;
+
+    private void OnSubmissionsChanged()
+        => InvokeAsync(StateHasChanged);
+
+    private async Task HandleImport()
+    {
+        _importing = true;
+        _lastImport = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ImportService.PickAndImportAsync();
+            _lastImport = result; // null = user cancelled picker
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+
+    private void SelectStudent(string name)
+    {
+        // Switching to the named tab is handled by MudTabs automatically
+        // when the user clicks the summary row — this callback is a hook
+        // for future navigation if needed.
+    }
+
+    private void ShowCode(ImportedSubmission sub)
+    {
+        _selectedSub       = sub;
+        _selectedCode      = sub.Code.Length > 0 ? sub.Code : "(no code recorded)";
+        _codeDialogTitle   = $"{sub.StudentName} — {sub.ChallengeName}";
+        _codeDialogOpen    = true;
+    }
+
+    private void ConfirmClearAll() => _confirmClearOpen = true;
+
+    private void DoClearAll()
+    {
+        ImportService.ClearAll();
+        _confirmClearOpen = false;
+        _lastImport       = null;
+    }
+
+    private static Severity ImportSeverity(ImportResult r) =>
+        !r.Success                       ? Severity.Error   :
+        r.TamperedWarning || r.UnmatchedClass ? Severity.Warning :
+                                           Severity.Success;
+
+    private static string FormatTime(TimeSpan t) =>
+        $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}";
+}
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     Inner component: summary table (all students)
+     ══════════════════════════════════════════════════════════════ -->
+@* Inline helper components to keep file count low *@

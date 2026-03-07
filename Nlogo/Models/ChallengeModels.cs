@@ -53,9 +53,31 @@ public sealed record CheckResult(
 );
 
 // ── Persisted progress per challenge ──────────────────────────────────────
-public sealed record ChallengeProgress(
-    string ChallengeId,
-    int Stars,
-    TimeSpan BestTime,
-    DateTime CompletedAt
-);
+public sealed class ChallengeProgress
+{
+    public string ChallengeId { get; init; } = string.Empty;
+    public int Stars { get; init; }
+    public TimeSpan BestTime { get; init; }
+    public DateTime CompletedAt { get; init; }
+
+    /// <summary>
+    /// The code the student used when they achieved their best result.
+    /// Stored so it can be included in offline email submissions.
+    /// </summary>
+    public string? LastCode { get; init; }
+
+    // Convenience constructor to keep callers that don't pass code working
+    public ChallengeProgress(
+        string challengeId,
+        int stars,
+        TimeSpan bestTime,
+        DateTime completedAt,
+        string? lastCode = null)
+    {
+        ChallengeId = challengeId;
+        Stars       = stars;
+        BestTime    = bestTime;
+        CompletedAt = completedAt;
+        LastCode    = lastCode;
+    }
+}
