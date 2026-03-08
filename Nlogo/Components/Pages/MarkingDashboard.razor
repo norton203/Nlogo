@@ -60,15 +60,14 @@
         <MudAlert Severity="@ImportSeverity(_lastImport)"
                   Class="mb-4"
                   ShowCloseIcon="true"
-                  CloseIconClicked="() => _lastImport = null">
+                  CloseIconClicked="@(() => _lastImport = null)">
 
             @if (_lastImport.Success)
             {
-                <b>@_lastImport.StudentName</b> —
-                @_lastImport.SubmissionCount submission(s) imported.
+                <span><b>@_lastImport.StudentName</b> &mdash; @_importSummary</span>
                 @if (_lastImport.DuplicatesSkipped > 0)
                 {
-                    <span> (@_lastImport.DuplicatesSkipped duplicate(s) skipped.)</span>
+                    <span> (@_lastImport.DuplicatesSkipped @_duplicateWord skipped)</span>
                 }
                 @if (_lastImport.TamperedWarning)
                 {
@@ -133,9 +132,7 @@
 <MudDialog @bind-Visible="_codeDialogOpen"
            Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true })">
     <TitleContent>
-        <MudText Typo="Typo.h6">
-            @_codeDialogTitle
-        </MudText>
+        <MudText Typo="Typo.h6">@_codeDialogTitle</MudText>
     </TitleContent>
     <DialogContent>
         @if (_selectedCode is not null)
@@ -176,10 +173,7 @@
         <MudText Typo="Typo.h6">Clear all submissions?</MudText>
     </TitleContent>
     <DialogContent>
-        <MudText>
-            This will remove all @ImportService.All.Count imported submission(s) from
-            the dashboard. This cannot be undone (the original .logowork files are unaffected).
-        </MudText>
+        <MudText>@_confirmClearMessage</MudText>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => _confirmClearOpen = false)">Cancel</MudButton>
@@ -200,6 +194,20 @@
     // Confirm clear
     private bool _confirmClearOpen;
 
+    // ── Computed strings (avoids inline pluralisation in Razor markup) ──────
+    private string _importSummary =>
+        _lastImport is null ? string.Empty
+        : $"{_lastImport.SubmissionCount} {(_lastImport.SubmissionCount == 1 ? "submission" : "submissions")} imported";
+
+    private string _duplicateWord =>
+        _lastImport?.DuplicatesSkipped == 1 ? "duplicate" : "duplicates";
+
+    private string _confirmClearMessage =>
+        $"This will remove all {ImportService.All.Count} imported " +
+        $"{(ImportService.All.Count == 1 ? "submission" : "submissions")} from the dashboard. " +
+        "This cannot be undone (the original .logowork files are unaffected).";
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
     protected override void OnInitialized()
         => ImportService.SubmissionsChanged += OnSubmissionsChanged;
 
@@ -209,16 +217,16 @@
     private void OnSubmissionsChanged()
         => InvokeAsync(StateHasChanged);
 
+    // ── Import ─────────────────────────────────────────────────────────────
     private async Task HandleImport()
     {
-        _importing = true;
+        _importing  = true;
         _lastImport = null;
         StateHasChanged();
 
         try
         {
-            var result = await ImportService.PickAndImportAsync();
-            _lastImport = result; // null = user cancelled picker
+            _lastImport = await ImportService.PickAndImportAsync();
         }
         finally
         {
@@ -226,21 +234,19 @@
         }
     }
 
-    private void SelectStudent(string name)
-    {
-        // Switching to the named tab is handled by MudTabs automatically
-        // when the user clicks the summary row — this callback is a hook
-        // for future navigation if needed.
-    }
+    // ── Navigation ─────────────────────────────────────────────────────────
+    private void SelectStudent(string name) { /* hook for future use */ }
 
+    // ── Code viewer ────────────────────────────────────────────────────────
     private void ShowCode(ImportedSubmission sub)
     {
-        _selectedSub       = sub;
-        _selectedCode      = sub.Code.Length > 0 ? sub.Code : "(no code recorded)";
-        _codeDialogTitle   = $"{sub.StudentName} — {sub.ChallengeName}";
-        _codeDialogOpen    = true;
+        _selectedSub     = sub;
+        _selectedCode    = sub.Code.Length > 0 ? sub.Code : "(no code recorded)";
+        _codeDialogTitle = $"{sub.StudentName} — {sub.ChallengeName}";
+        _codeDialogOpen  = true;
     }
 
+    // ── Clear all ──────────────────────────────────────────────────────────
     private void ConfirmClearAll() => _confirmClearOpen = true;
 
     private void DoClearAll()
@@ -250,17 +256,12 @@
         _lastImport       = null;
     }
 
+    // ── Helpers ────────────────────────────────────────────────────────────
     private static Severity ImportSeverity(ImportResult r) =>
-        !r.Success                       ? Severity.Error   :
+        !r.Success ? Severity.Error :
         r.TamperedWarning || r.UnmatchedClass ? Severity.Warning :
-                                           Severity.Success;
+                                                Severity.Success;
 
     private static string FormatTime(TimeSpan t) =>
         $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}";
 }
-
-
-<!-- ══════════════════════════════════════════════════════════════
-     Inner component: summary table (all students)
-     ══════════════════════════════════════════════════════════════ -->
-@* Inline helper components to keep file count low *@

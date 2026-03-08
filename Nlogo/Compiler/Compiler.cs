@@ -95,6 +95,22 @@ public sealed class Interpreter
             case ShowTurtleNode _: await _js.InvokeVoidAsync("showTurtle"); break;
             case HideTurtleNode _: await _js.InvokeVoidAsync("hideTurtle"); break;
 
+            // ── Console output ────────────────────────────────────
+            case PrintNode p:
+                _log(Str(p.Value, env));
+                break;
+
+            // ── Canvas text ───────────────────────────────────────
+            case LabelNode lb:
+                await _js.InvokeVoidAsync("drawLabel", Str(lb.Text, env));
+                break;
+
+            // ── Timing ────────────────────────────────────────────
+            case WaitNode w:
+                int waitMs = (int)(Num(w.Duration, env) * 1000);
+                await Task.Delay(Math.Max(0, waitMs), _ct);
+                break;
+
             // ── Variables ─────────────────────────────────────────
             case MakeNode m:
                 env.Set(m.Name, Evaluate(m.Value, env));
@@ -219,11 +235,47 @@ public sealed class Interpreter
 
         BinaryOpNode b => EvaluateBinary(b, env),
 
+        // ── Math functions ─────────────────────────────────────────
+        MathFuncNode mf => EvaluateMathFunc(mf, env),
+        PowerFuncNode pf => Math.Pow(Num(pf.Base, env), Num(pf.Exponent, env)),
+        RandomNode rn => (double)Random.Shared.Next(Math.Max(1, (int)Num(rn.Max, env))),
+
         ProcCallNode call =>
             CallProcAsync(call.Name, call.Args, env).GetAwaiter().GetResult(),
 
         _ => throw new RuntimeException($"Cannot evaluate node '{node.GetType().Name}'")
     };
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Math function evaluator
+    // ═══════════════════════════════════════════════════════════════
+    private object? EvaluateMathFunc(MathFuncNode mf, LogoEnvironment env)
+    {
+        double arg = Num(mf.Arg, env);
+
+        // Logo uses degrees for trig; convert to/from radians internally
+        const double DegToRad = Math.PI / 180.0;
+        const double RadToDeg = 180.0 / Math.PI;
+
+        return mf.FuncName switch
+        {
+            "SIN" => Math.Sin(arg * DegToRad),
+            "COS" => Math.Cos(arg * DegToRad),
+            "TAN" => Math.Tan(arg * DegToRad),
+            "ARCTAN" => Math.Atan(arg) * RadToDeg,
+            "SQRT" => arg < 0
+                            ? throw new RuntimeException("SQRT of a negative number")
+                            : Math.Sqrt(arg),
+            "ABS" => Math.Abs(arg),
+            "ROUND" => (double)Math.Round(arg, MidpointRounding.AwayFromZero),
+            "INT" => Math.Truncate(arg),
+            "LOG" => arg <= 0
+                            ? throw new RuntimeException("LOG requires a positive number")
+                            : Math.Log(arg),
+            "EXP" => Math.Exp(arg),
+            _ => throw new RuntimeException($"Unknown math function '{mf.FuncName}'")
+        };
+    }
 
     private object? EvaluateBinary(BinaryOpNode b, LogoEnvironment env)
     {

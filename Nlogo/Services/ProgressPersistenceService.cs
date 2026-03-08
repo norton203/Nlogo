@@ -32,7 +32,8 @@ public sealed class ProgressPersistenceService
                     d.ChallengeId,
                     d.Stars,
                     TimeSpan.FromTicks(d.BestTimeTicks),
-                    new DateTime(d.CompletedAtTicks)));
+                    new DateTime(d.CompletedAtTicks),
+                    d.LastCode));
         }
         catch (Exception ex)
         {
@@ -51,7 +52,8 @@ public sealed class ProgressPersistenceService
                     p.ChallengeId,
                     p.Stars,
                     p.BestTime.Ticks,
-                    p.CompletedAt.Ticks))
+                    p.CompletedAt.Ticks,
+                    p.LastCode))
                 .ToList();
 
             var json = JsonSerializer.Serialize(dtos, Opts);
@@ -77,5 +79,6 @@ public sealed class ProgressPersistenceService
         string ChallengeId,
         int Stars,
         long BestTimeTicks,
-        long CompletedAtTicks);
+        long CompletedAtTicks,
+        string? LastCode = null);
 }

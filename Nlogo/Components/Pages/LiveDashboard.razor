@@ -1,0 +1,261 @@
+﻿@page "/live"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Nlogo.Models
+@using Nlogo.Services
+@inject ClassroomServerService Server
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>Live Classroom — Logo IDE</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <MudPaper Elevation="3" Class="pa-3 mb-4 d-flex align-center gap-3 flex-wrap">
+        <MudIcon Icon="@Icons.Material.Filled.CastForEducation" Color="Color.Primary" Size="Size.Large" />
+        <div class="flex-grow-1">
+            <MudText Typo="Typo.h5">Live Classroom</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Students connect over your local WiFi network
+            </MudText>
+        </div>
+        <MudButton Variant="Variant.Text"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Nav.NavigateTo("/marking"))">
+            Marking Dashboard
+        </MudButton>
+    </MudPaper>
+
+    <!-- ── Server control card ───────────────────────────────── -->
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <div class="d-flex align-center gap-3 flex-wrap">
+
+            @if (!Server.IsRunning)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.PlayCircle"
+                           Disabled="@_busy"
+                           OnClick="StartServer">
+                    @if (_busy)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    <span>Start Class Session</span>
+                </MudButton>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Click to host a session — students will connect over WiFi.
+                </MudText>
+            }
+            else
+            {
+                <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.Wifi">
+                    Live
+                </MudChip>
+
+                <div>
+                    <MudText Typo="Typo.body1">
+                        <b>Students enter this IP address:</b>
+                    </MudText>
+                    <MudText Typo="Typo.h5" Style="font-family:monospace; letter-spacing:2px">
+                        @Server.LocalIp
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Port @ClassroomServerService.HubPort · WiFi only · no internet needed
+                    </MudText>
+                </div>
+
+                <MudSpacer />
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.StopCircle"
+                           Disabled="@_busy"
+                           OnClick="StopServer">
+                    End Session
+                </MudButton>
+            }
+        </div>
+    </MudPaper>
+
+    <!-- ── Error banner ──────────────────────────────────────── -->
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4"
+                  ShowCloseIcon="true" CloseIconClicked="@(() => _error = null)">
+            @_error
+        </MudAlert>
+    }
+
+    <!-- ── Student roster ────────────────────────────────────── -->
+    @if (!Server.IsRunning)
+    {
+        <MudPaper Elevation="1" Class="pa-8 text-center">
+            <MudIcon Icon="@Icons.Material.Filled.Groups"
+                     Style="font-size:4rem; color:var(--mud-palette-text-disabled)" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+                Start a session to see students connect
+            </MudText>
+        </MudPaper>
+    }
+    else if (_roster.Count == 0)
+    {
+        <MudPaper Elevation="1" Class="pa-8 text-center">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary">
+                Waiting for students to connect…
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Ask them to open Logo IDE → Student → enter <b>@Server.LocalIp</b>
+            </MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <!-- Summary chips -->
+        <div class="d-flex gap-3 mb-4 flex-wrap">
+            <MudChip T="string" Icon="@Icons.Material.Filled.People" Color="Color.Primary">
+                @_roster.Count student@(_roster.Count == 1 ? "" : "s") connected
+            </MudChip>
+            <MudChip T="string" Icon="@Icons.Material.Filled.Star" Color="Color.Warning">
+                @_roster.Sum(s => s.TotalStars) total stars
+            </MudChip>
+            <MudChip T="string" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success">
+                @_roster.Sum(s => s.CompletedCount) challenges completed
+            </MudChip>
+        </div>
+
+        <!-- Live cards grid -->
+        <div class="student-grid">
+            @foreach (var student in _roster)
+            {
+                <div class="student-card @(IsRecent(student) ? "card-active" : "card-idle")">
+
+                    <div class="card-header">
+                        <span class="card-name">@student.StudentName</span>
+                        @if (IsRecent(student))
+                        {
+                            <span class="live-dot" title="Active in last 30s"></span>
+                        }
+                    </div>
+
+                    <div class="card-stars">
+                        @for (int i = 0; i < student.TotalStars; i++)
+                        {
+                            <span>⭐</span>
+                        }
+                        @if (student.TotalStars == 0)
+                        {
+                            <span style="opacity:.4">No stars yet</span>
+                        }
+                    </div>
+
+                    <div class="card-challenge">
+                        @if (!string.IsNullOrEmpty(student.CurrentChallengeName))
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Class="mr-1" />
+                            <span>@student.CurrentChallengeName</span>
+                        }
+                        else
+                        {
+                            <span style="opacity:.4">No challenge selected</span>
+                        }
+                    </div>
+
+                    <div class="card-meta">
+                        @student.CompletedCount completed ·
+                        joined @student.JoinedAt.ToString("HH:mm")
+                    </div>
+
+                </div>
+            }
+        </div>
+    }
+
+</MudContainer>
+
+@code {
+    private bool _busy;
+    private string? _error;
+    private List<StudentStatus> _roster = [];
+    private HubConnection? _dashboardHub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Server.StateChanged += OnServerStateChanged;
+        if (Server.IsRunning)
+            await ConnectDashboardAsync();
+    }
+
+    // ── Server control ─────────────────────────────────────────────────────
+
+    private async Task StartServer()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Server.StartAsync();
+            await ConnectDashboardAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to start server: {ex.Message}";
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task StopServer()
+    {
+        _busy = true;
+        try
+        {
+            await DisconnectDashboardAsync();
+            await Server.StopAsync();
+            _roster = [];
+        }
+        finally { _busy = false; }
+    }
+
+    // ── Dashboard SignalR connection (teacher listens for roster changes) ──
+
+    private async Task ConnectDashboardAsync()
+    {
+        _dashboardHub = new HubConnectionBuilder()
+            .WithUrl($"http://127.0.0.1:{ClassroomServerService.HubPort}{ClassroomServerService.HubPath}")
+            .WithAutomaticReconnect()
+            .Build();
+
+        _dashboardHub.On<List<StudentStatus>>("RosterChanged", roster =>
+        {
+            _roster = roster;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _dashboardHub.StartAsync();
+        await _dashboardHub.InvokeAsync("JoinTeacherGroup");
+    }
+
+    private async Task DisconnectDashboardAsync()
+    {
+        if (_dashboardHub is not null)
+        {
+            await _dashboardHub.StopAsync();
+            await _dashboardHub.DisposeAsync();
+            _dashboardHub = null;
+        }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    private void OnServerStateChanged() => InvokeAsync(StateHasChanged);
+
+    private static bool IsRecent(StudentStatus s)
+        => (DateTime.Now - s.LastActivity).TotalSeconds < 30;
+
+    public async ValueTask DisposeAsync()
+    {
+        Server.StateChanged -= OnServerStateChanged;
+        await DisconnectDashboardAsync();
+    }
+}

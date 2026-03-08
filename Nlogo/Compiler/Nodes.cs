@@ -65,6 +65,28 @@ public sealed record UnaryOpNode(
     int Line, int Col
 ) : Node(Line, Col);
 
+// ── Math function expressions ─────────────────────────────────────────
+
+/// SIN, COS, TAN, ARCTAN, SQRT, ABS, ROUND, INT, LOG, EXP  — single-arg math
+public sealed record MathFuncNode(
+    string FuncName,
+    Node Arg,
+    int Line, int Col
+) : Node(Line, Col);
+
+/// POWER <base> <exponent>  — two-arg power
+public sealed record PowerFuncNode(
+    Node Base,
+    Node Exponent,
+    int Line, int Col
+) : Node(Line, Col);
+
+/// RANDOM <max>  — returns a random integer in 0..(max-1)
+public sealed record RandomNode(
+    Node Max,
+    int Line, int Col
+) : Node(Line, Col);
+
 // ── Movement commands ─────────────────────────────────────────────────
 public sealed record ForwardNode(Node Distance, int Line, int Col) : Node(Line, Col);
 public sealed record BackwardNode(Node Distance, int Line, int Col) : Node(Line, Col);
@@ -87,6 +109,21 @@ public sealed record SetWidthNode(Node Width, int Line, int Col) : Node(Line, Co
 public sealed record ClearScreenNode(int Line, int Col) : Node(Line, Col);
 public sealed record ShowTurtleNode(int Line, int Col) : Node(Line, Col);
 public sealed record HideTurtleNode(int Line, int Col) : Node(Line, Col);
+
+// ── Console output ────────────────────────────────────────────────────
+
+/// PRINT / SHOW / TYPE <expr>  — prints value to IDE console
+public sealed record PrintNode(Node Value, int Line, int Col) : Node(Line, Col);
+
+// ── Canvas text ───────────────────────────────────────────────────────
+
+/// LABEL <expr>  — draws text at the turtle's current position
+public sealed record LabelNode(Node Text, int Line, int Col) : Node(Line, Col);
+
+// ── Timing ────────────────────────────────────────────────────────────
+
+/// WAIT <seconds>  — pauses execution (respects cancellation)
+public sealed record WaitNode(Node Duration, int Line, int Col) : Node(Line, Col);
 
 // ── Control flow ──────────────────────────────────────────────────────
 

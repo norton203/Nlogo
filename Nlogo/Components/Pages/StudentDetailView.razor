@@ -1,0 +1,84 @@
+﻿@using Nlogo.Models
+
+@* ══════════════════════════════════════════════════════════════════
+   StudentDetailView — shows all submissions for a single student.
+   Used as a tab panel inside MarkingDashboard.razor.
+   ══════════════════════════════════════════════════════════════════ *@
+
+<div class="mt-2">
+
+    @if (Submissions.Count == 0)
+    {
+        <MudText Color="Color.Secondary" Class="pa-4">
+            No submissions found for <b>@StudentName</b>.
+        </MudText>
+    }
+    else
+    {
+        <!-- ── Summary chips ──────────────────────────────────── -->
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+            <MudChip T="string" Color="Color.Primary" Size="Size.Small">
+                @Submissions.Count challenge(s)
+            </MudChip>
+            <MudChip T="string" Color="Color.Warning" Size="Size.Small">
+                ⭐ @Submissions.Sum(s => s.Stars) total stars
+            </MudChip>
+            @if (Submissions.Any(s => !s.ChecksumValid))
+            {
+                <MudChip T="string" Color="Color.Error" Size="Size.Small">
+                    ⚠️ Integrity warning on some submissions
+                </MudChip>
+            }
+        </div>
+
+        <!-- ── Submissions table ─────────────────────────────── -->
+        <MudTable Items="Submissions"
+                  Dense="true"
+                  Striped="true"
+                  Bordered="true"
+                  Hover="true">
+            <HeaderContent>
+                <MudTh>Challenge</MudTh>
+                <MudTh>Stars</MudTh>
+                <MudTh>Time</MudTh>
+                <MudTh>Completed</MudTh>
+                <MudTh>Integrity</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.ChallengeName</MudTd>
+                <MudTd>@(new string('⭐', context.Stars))</MudTd>
+                <MudTd>@FormatTime(TimeSpan.FromSeconds(context.TimeTakenSeconds))</MudTd>
+                <MudTd>@context.CompletedAt.ToString("dd MMM yyyy HH:mm")</MudTd>
+                <MudTd>
+                    @if (context.ChecksumValid)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success">✓ OK</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">⚠️ Modified</MudChip>
+                    }
+                </MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small"
+                               Variant="Variant.Text"
+                               Disabled="@(context.Code.Length == 0)"
+                               OnClick="@(() => OnViewCode.InvokeAsync(context))">
+                        View Code
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+
+</div>
+
+@code {
+    [Parameter] public string StudentName { get; set; } = string.Empty;
+    [Parameter] public List<ImportedSubmission> Submissions { get; set; } = [];
+    [Parameter] public EventCallback<ImportedSubmission> OnViewCode { get; set; }
+
+    private static string FormatTime(TimeSpan t)
+        => $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}";
+}

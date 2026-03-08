@@ -1,8 +1,10 @@
-﻿@page "/"
+﻿@page "/ide"
 @using Nlogo.Compiler
 @using Nlogo.Services
 @inject IJSRuntime JS
 @inject ChallengeService ChallengeService
+@inject NavigationManager Nav
+@inject ClassroomClientService ClassroomClient
 @implements IAsyncDisposable
 
 <PageTitle>Logo IDE</PageTitle>
@@ -58,6 +60,17 @@
     </MudButton>
 
     <MudSpacer />
+    <MudIconButton Icon="@Icons.Material.Filled.Home"
+                   Title="Back to menu"
+                   OnClick="@(() => Nav.NavigateTo("/"))" />
+
+    @if (ClassroomClient.IsConnected)
+    {
+        <MudChip T="string" Color="Color.Success" Size="Size.Small"
+                 Icon="@Icons.Material.Filled.Wifi" Class="mr-1">
+            Live class
+        </MudChip>
+    }
 
     <MudChip T="string" Color="Color.Dark" Size="Size.Small" Icon="@Icons.Material.Filled.Info">
         @_statusMessage

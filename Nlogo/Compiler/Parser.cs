@@ -54,6 +54,7 @@ public sealed class Parser
     // ═════════════════════════════════════════════════════════════
     private Node? ParseStatement() => Current.Type switch
     {
+        // ── Movement ──────────────────────────────────────────────
         TokenType.Forward => ParseForward(),
         TokenType.Backward => ParseBackward(),
         TokenType.Right => ParseRight(),
@@ -61,15 +62,27 @@ public sealed class Parser
         TokenType.Home => ParseHome(),
         TokenType.SetPos => ParseSetPos(),
 
+        // ── Pen ───────────────────────────────────────────────────
         TokenType.PenUp => ParsePenUp(),
         TokenType.PenDown => ParsePenDown(),
         TokenType.SetColor => ParseSetColor(),
         TokenType.SetWidth => ParseSetWidth(),
 
+        // ── Screen ────────────────────────────────────────────────
         TokenType.ClearScreen => ParseClearScreen(),
         TokenType.ShowTurtle => ParseShowTurtle(),
         TokenType.HideTurtle => ParseHideTurtle(),
 
+        // ── Console output ────────────────────────────────────────
+        TokenType.Print => ParsePrint(),
+
+        // ── Canvas text ───────────────────────────────────────────
+        TokenType.Label => ParseLabel(),
+
+        // ── Timing ────────────────────────────────────────────────
+        TokenType.Wait => ParseWait(),
+
+        // ── Control flow ──────────────────────────────────────────
         TokenType.Repeat => ParseRepeat(),
         TokenType.Forever => ParseForever(),
         TokenType.If => ParseIf(),
@@ -78,12 +91,17 @@ public sealed class Parser
         TokenType.Stop => ParseStop(),
         TokenType.Output => ParseOutput(),
 
+        // ── Procedure definition ───────────────────────────────────
         TokenType.To => ParseProcDef(),
+
+        // ── Variables ─────────────────────────────────────────────
         TokenType.Make => ParseMake(),
         TokenType.Local => ParseLocal(),
 
+        // ── User procedure call ───────────────────────────────────
         TokenType.Identifier => ParseProcCall(),
 
+        // ── Whitespace / end ──────────────────────────────────────
         TokenType.Newline => null, // consumed by SkipNewlines but guard here
         TokenType.EOF => null,
 
@@ -126,6 +144,21 @@ public sealed class Parser
     private ClearScreenNode ParseClearScreen() { var t = Consume(); return new(t.Line, t.Col); }
     private ShowTurtleNode ParseShowTurtle() { var t = Consume(); return new(t.Line, t.Col); }
     private HideTurtleNode ParseHideTurtle() { var t = Consume(); return new(t.Line, t.Col); }
+
+    // ═════════════════════════════════════════════════════════════
+    //  Console output  PRINT / SHOW / TYPE
+    // ═════════════════════════════════════════════════════════════
+    private PrintNode ParsePrint() { var t = Consume(); return new(ParseExpr(), t.Line, t.Col); }
+
+    // ═════════════════════════════════════════════════════════════
+    //  Canvas text  LABEL
+    // ═════════════════════════════════════════════════════════════
+    private LabelNode ParseLabel() { var t = Consume(); return new(ParseExpr(), t.Line, t.Col); }
+
+    // ═════════════════════════════════════════════════════════════
+    //  Timing  WAIT
+    // ═════════════════════════════════════════════════════════════
+    private WaitNode ParseWait() { var t = Consume(); return new(ParseExpr(), t.Line, t.Col); }
 
     // ═════════════════════════════════════════════════════════════
     //  Control flow
@@ -409,6 +442,34 @@ public sealed class Parser
             var name = Expect(TokenType.String, "Expected quoted name after THING").Literal as string
                        ?? throw Error("Invalid variable name in THING");
             return new DerefNode(name, t.Line, t.Col);
+        }
+
+        // ── Single-argument math functions ────────────────────────
+        // SIN, COS, TAN, ARCTAN, SQRT, ABS, ROUND, INT, LOG, EXP
+        if (Current.Type is TokenType.Sin or TokenType.Cos or TokenType.Tan
+                         or TokenType.ArcTan or TokenType.Sqrt or TokenType.Abs
+                         or TokenType.Round or TokenType.IntFunc
+                         or TokenType.Log or TokenType.Exp)
+        {
+            var fn = Consume();
+            var arg = ParsePrimary();
+            return new MathFuncNode(fn.Lexeme.ToUpperInvariant(), arg, fn.Line, fn.Col);
+        }
+
+        // POWER <base> <exponent>  — two-argument form
+        if (Check(TokenType.Power))
+        {
+            var fn = Consume();
+            var b = ParsePrimary();
+            var e = ParsePrimary();
+            return new PowerFuncNode(b, e, fn.Line, fn.Col);
+        }
+
+        // RANDOM <max>
+        if (Check(TokenType.Random))
+        {
+            var fn = Consume();
+            return new RandomNode(ParsePrimary(), fn.Line, fn.Col);
         }
 
         // User-defined proc call used as expression  e.g.  FORWARD MYPROC

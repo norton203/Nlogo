@@ -279,7 +279,7 @@
             _lastResult = result;
 
             // 5. Persist best progress
-            Svc.SaveProgress(_current.Id, result.Stars, _elapsed);
+            Svc.SaveProgress(_current.Id, result.Stars, _elapsed, code);
 
             // 6. Stop timer on success
             if (result.Stars > 0)

@@ -23,6 +23,29 @@ public enum TokenType
     ShowTurtle,     // SHOWTURTLE / ST
     HideTurtle,     // HIDETURTLE / HT
 
+    // ── Console Output ─────────────────────────
+    Print,          // PRINT / SHOW / TYPE  — prints a value to the console
+
+    // ── Math Functions (expression) ────────────
+    Sin,            // SIN <degrees>
+    Cos,            // COS <degrees>
+    Tan,            // TAN <degrees>
+    ArcTan,         // ARCTAN <value>  → degrees
+    Sqrt,           // SQRT <value>
+    Abs,            // ABS <value>
+    Round,          // ROUND <value>
+    IntFunc,        // INT <value>  (truncate toward zero)
+    Power,          // POWER <base> <exponent>
+    Log,            // LOG <value>  (natural log)
+    Exp,            // EXP <value>  (e^value)
+    Random,         // RANDOM <max>  → integer 0..(max-1)
+
+    // ── Timing ─────────────────────────────────
+    Wait,           // WAIT <seconds>
+
+    // ── Canvas Text ────────────────────────────
+    Label,          // LABEL <text>  — draws text at turtle position
+
     // ── Control Flow ──────────────────────────
     Repeat,         // REPEAT
     Forever,        // FOREVER
@@ -53,7 +76,7 @@ public enum TokenType
     // ── Comparison Operators ──────────────────
     Equal,          // =
     NotEqual,       // <>
-    Less,           // 
+    Less,           // <
     Greater,        // >
     LessEqual,      // <=
     GreaterEqual,   // >=

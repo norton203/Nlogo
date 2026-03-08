@@ -1,0 +1,71 @@
+﻿@page "/teacher"
+@using Nlogo.Services
+@inject NavigationManager Nav
+@inject ClassroomServerService Server
+
+<PageTitle>Teacher — Logo IDE</PageTitle>
+
+<div class="title-root">
+
+    <div class="grid-bg"></div>
+
+    <svg class="trail-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
+        <polyline class="trail trail-1" points="100,500 200,400 350,400 450,250 600,250 700,150 850,150" />
+        <polyline class="trail trail-2" points="50,300 150,300 250,200 400,200 500,350 650,350 750,200 900,200" />
+    </svg>
+
+    <div class="title-card">
+
+        <div class="logo-mark">
+            <span class="logo-turtle">📋</span>
+            <div class="logo-pulse"></div>
+        </div>
+
+        <h1 class="app-title">Teacher<span class="title-accent">Hub</span></h1>
+        <p class="app-subtitle">Mark work or host a live session</p>
+
+        <div class="divider"></div>
+
+        <p class="mode-prompt">What would you like to do?</p>
+
+        <div class="mode-buttons">
+
+            <button class="mode-btn teacher-btn" @onclick="@(() => Nav.NavigateTo("/marking"))">
+                <span class="btn-icon">📥</span>
+                <span class="btn-label">Marking Dashboard</span>
+                <span class="btn-desc">Import and review .logowork email submissions</span>
+                <span class="btn-arrow">→</span>
+            </button>
+
+            <button class="mode-btn live-btn" @onclick="@(() => Nav.NavigateTo("/live"))">
+                <span class="btn-icon">📡</span>
+                <span class="btn-label">Live Classroom</span>
+                <span class="btn-desc">
+                    @if (Server.IsRunning)
+                    {
+                        <text>Session active · @Server.LocalIp</text>
+                    }
+                    else
+                    {
+                        <text>Host a real-time session over WiFi</text>
+                    }
+                </span>
+                @if (Server.IsRunning)
+                {
+                    <span class="btn-badge live-badge">🟢 Live</span>
+                }
+                <span class="btn-arrow">→</span>
+            </button>
+
+        </div>
+
+        <button class="back-link" @onclick="@(() => Nav.NavigateTo("/"))">
+            ← Back to home
+        </button>
+
+        <p class="version-tag">v1.0 · .NET 10 MAUI</p>
+
+    </div>
+</div>
+
+@code { }

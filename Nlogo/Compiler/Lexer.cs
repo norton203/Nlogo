@@ -204,6 +204,29 @@ public sealed class Lexer
             "SHOWTURTLE"   or "ST" => TokenType.ShowTurtle,
             "HIDETURTLE"   or "HT" => TokenType.HideTurtle,
 
+            // console output
+            "PRINT" or "SHOW" or "TYPE" => TokenType.Print,
+
+            // math functions
+            "SIN" => TokenType.Sin,
+            "COS" => TokenType.Cos,
+            "TAN" => TokenType.Tan,
+            "ARCTAN" => TokenType.ArcTan,
+            "SQRT" => TokenType.Sqrt,
+            "ABS" => TokenType.Abs,
+            "ROUND" => TokenType.Round,
+            "INT" => TokenType.IntFunc,
+            "POWER" => TokenType.Power,
+            "LOG" => TokenType.Log,
+            "EXP" => TokenType.Exp,
+            "RANDOM" => TokenType.Random,
+
+            // timing
+            "WAIT" => TokenType.Wait,
+
+            // canvas text
+            "LABEL" => TokenType.Label,
+
             // control flow
             "REPEAT" => TokenType.Repeat,
             "FOREVER" => TokenType.Forever,

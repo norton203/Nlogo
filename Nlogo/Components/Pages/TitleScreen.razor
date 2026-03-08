@@ -1,0 +1,190 @@
+﻿@page "/"
+@using Nlogo.Services
+@inject NavigationManager Nav
+@inject ChallengeService ChallengeService
+@inject ClassroomClientService ClassroomClient
+@inject StudentSettingsService SettingsService
+
+<PageTitle>Logo IDE — Welcome</PageTitle>
+
+<div class="title-root">
+
+    <div class="grid-bg"></div>
+
+    <div class="deco deco-1">🐢</div>
+    <div class="deco deco-2">🐢</div>
+    <div class="deco deco-3">🐢</div>
+
+    <svg class="trail-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
+        <polyline class="trail trail-1" points="100,500 200,400 350,400 450,250 600,250 700,150 850,150" />
+        <polyline class="trail trail-2" points="50,300 150,300 250,200 400,200 500,350 650,350 750,200 900,200" />
+        <polyline class="trail trail-3" points="200,550 300,450 400,450 500,300 650,300 800,400" />
+    </svg>
+
+    <div class="title-card">
+
+        <div class="logo-mark">
+            <span class="logo-turtle">🐢</span>
+            <div class="logo-pulse"></div>
+        </div>
+
+        <h1 class="app-title">Logo<span class="title-accent">IDE</span></h1>
+        <p class="app-subtitle">Learn programming through turtle graphics</p>
+
+        <div class="divider"></div>
+
+        @if (!_showStudentJoin)
+        {
+            <!-- ── Mode selection ──────────────────────────────── -->
+            <p class="mode-prompt">Who are you today?</p>
+
+            <div class="mode-buttons">
+
+                <button class="mode-btn student-btn" @onclick="@(() => _showStudentJoin = true)">
+                    <span class="btn-icon">🎒</span>
+                    <span class="btn-label">Student</span>
+                    <span class="btn-desc">Write code, draw shapes, earn stars</span>
+                    @if (ChallengeService.TotalStars > 0)
+                    {
+                        <span class="btn-badge">⭐ @ChallengeService.TotalStars stars earned</span>
+                    }
+                    <span class="btn-arrow">→</span>
+                </button>
+
+                <button class="mode-btn teacher-btn" @onclick="GoTeacher">
+                    <span class="btn-icon">📋</span>
+                    <span class="btn-label">Teacher</span>
+                    <span class="btn-desc">Mark submissions or host a live class</span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+            </div>
+        }
+        else
+        {
+            <!-- ── Student join panel ─────────────────────────── -->
+            <div class="join-panel">
+
+                <div class="join-header">
+                    <button class="back-btn" @onclick="@(() => { _showStudentJoin = false; _joinError = null; })">
+                        ← Back
+                    </button>
+                    <span class="join-title">Student Login</span>
+                </div>
+
+                <div class="join-field">
+                    <label class="field-label">Your name</label>
+                    <input class="field-input"
+                           type="text"
+                           placeholder="e.g. Jamie"
+                           @bind="_studentName"
+                           @bind:event="oninput"
+                           maxlength="40" />
+                </div>
+
+                <!-- Offline: just go straight to IDE -->
+                <button class="mode-btn student-btn solo-btn" @onclick="GoStudentSolo"
+                        disabled="@(string.IsNullOrWhiteSpace(_studentName))">
+                    <span class="btn-icon">🖥️</span>
+                    <span class="btn-label">Solo mode</span>
+                    <span class="btn-desc">Practice on your own, no network needed</span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+                <!-- OR divider -->
+                <div class="or-divider"><span>or join a live class</span></div>
+
+                <div class="join-field">
+                    <label class="field-label">Teacher's IP address</label>
+                    <input class="field-input"
+                           type="text"
+                           placeholder="e.g. 192.168.1.42"
+                           @bind="_teacherIp"
+                           @bind:event="oninput"
+                           maxlength="15" />
+                </div>
+
+                @if (_joinError is not null)
+                {
+                    <div class="join-error">⚠️ @_joinError</div>
+                }
+
+                <button class="mode-btn join-live-btn"
+                        @onclick="GoStudentLive"
+                        disabled="@(!CanJoinLive || _joining)">
+                    @if (_joining)
+                    {
+                        <span class="btn-icon spin">⏳</span>
+                    }
+                    else
+                    {
+                        <span class="btn-icon">📡</span>
+                    }
+                    <span class="btn-label">Join live class</span>
+                    <span class="btn-desc">Connect to your teacher's session</span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+            </div>
+        }
+
+        <p class="version-tag">v1.0 · .NET 10 MAUI</p>
+
+    </div>
+</div>
+
+@code {
+    private bool _showStudentJoin;
+    private bool _joining;
+    private string _studentName = string.Empty;
+    private string _teacherIp = string.Empty;
+    private string? _joinError;
+
+    private bool CanJoinLive =>
+        !string.IsNullOrWhiteSpace(_studentName) &&
+        !string.IsNullOrWhiteSpace(_teacherIp);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ChallengeService.EnsureLoadedAsync();
+
+        // Pre-fill from last session
+        var saved = SettingsService.Load();
+        if (!string.IsNullOrWhiteSpace(saved.StudentName))
+            _studentName = saved.StudentName;
+    }
+
+    private void GoStudentSolo()
+    {
+        SaveStudentName();
+        Nav.NavigateTo("/ide");
+    }
+
+    private async Task GoStudentLive()
+    {
+        if (!CanJoinLive) return;
+
+        _joining   = true;
+        _joinError = null;
+        SaveStudentName();
+        StateHasChanged();
+
+        var (ok, err) = await ClassroomClient.ConnectAsync(_teacherIp.Trim(), _studentName.Trim());
+
+        _joining = false;
+
+        if (ok)
+            Nav.NavigateTo("/ide");
+        else
+            _joinError = err;
+    }
+
+    private void GoTeacher() => Nav.NavigateTo("/teacher");
+
+    private void SaveStudentName()
+    {
+        var s = SettingsService.Load();
+        s.StudentName = _studentName.Trim();
+        SettingsService.Save(s);
+    }
+}

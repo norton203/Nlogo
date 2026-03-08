@@ -20,6 +20,9 @@ namespace Nlogo
             builder.Services.AddMudServices();
 
             // ── Core services ──────────────────────────────────────────────
+            // ProgressPersistenceService must be registered before ChallengeService
+            // because ChallengeService takes it as a constructor argument.
+            builder.Services.AddSingleton<ProgressPersistenceService>();
             builder.Services.AddSingleton<ChallengeService>();
 
             // ── Teacher portal / offline submission services ───────────────
