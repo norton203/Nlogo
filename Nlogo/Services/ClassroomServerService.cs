@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿#if WINDOWS
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging; 
-using Microsoft.AspNetCore.Http;     
-using Microsoft.AspNetCore.SignalR; 
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -13,6 +14,7 @@ namespace Nlogo.Services;
 /// <summary>
 /// Singleton that spins up an in-process Kestrel / ASP.NET Core server
 /// hosting the SignalR ClassroomHub. Only the teacher runs this.
+/// Windows only — the ASP.NET Core hosting stack is not available on iOS/Catalyst.
 /// </summary>
 public sealed class ClassroomServerService : IAsyncDisposable
 {
@@ -39,13 +41,11 @@ public sealed class ClassroomServerService : IAsyncDisposable
 
         builder.WebHost.ConfigureKestrel(k =>
         {
-            // Listen on all interfaces so students on the same WiFi can reach it
             k.Listen(IPAddress.Any, HubPort);
         });
 
         builder.Services.AddSignalR();
 
-        // Suppress Kestrel/ASP.NET console noise in MAUI output window
         builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Warning);
 
         _app = builder.Build();
@@ -76,14 +76,10 @@ public sealed class ClassroomServerService : IAsyncDisposable
 
     // ── Dispose ────────────────────────────────────────────────────────────
 
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync();
-    }
+    public async ValueTask DisposeAsync() => await StopAsync();
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    /// <summary>Returns the first non-loopback IPv4 address (WiFi / Ethernet).</summary>
     public static string GetLocalIp()
     {
         foreach (var iface in NetworkInterface.GetAllNetworkInterfaces())
@@ -105,3 +101,31 @@ public sealed class ClassroomServerService : IAsyncDisposable
 
     public string HubUrl => $"http://{LocalIp}:{HubPort}{HubPath}";
 }
+
+#else
+
+// ── Non-Windows stub ───────────────────────────────────────────────────────
+// iOS and Mac Catalyst have no ASP.NET Core server runtime.
+// This stub keeps DI registration and page injection working on all platforms,
+// but the live classroom server feature simply does nothing when not on Windows.
+
+namespace Nlogo.Services;
+
+public sealed class ClassroomServerService : IAsyncDisposable
+{
+    public const int HubPort = 5150;
+    public const string HubPath = "/classroomhub";
+
+    public bool IsRunning => false;
+    public string? LocalIp => null;
+    public string HubUrl => string.Empty;
+
+    public event Action? StateChanged;
+
+    public Task StartAsync() => Task.CompletedTask;
+    public Task StopAsync() => Task.CompletedTask;
+    public static string GetLocalIp() => "127.0.0.1";
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+#endif

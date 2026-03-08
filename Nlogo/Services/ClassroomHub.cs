@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿#if WINDOWS
+
+using Microsoft.AspNetCore.SignalR;
 using Nlogo.Models;
 using System.Collections.Concurrent;
 
 namespace Nlogo.Services;
 
 /// <summary>
-/// SignalR hub that runs on the teacher's machine.
+/// SignalR hub that runs on the teacher's machine (Windows only).
 /// Students connect and call JoinClass / UpdateProgress.
 /// The hub broadcasts the live roster to all teacher listeners.
 /// </summary>
@@ -22,18 +24,15 @@ public sealed class ClassroomHub : Hub
 
         var status = new StudentStatus
         {
-            ConnectionId  = Context.ConnectionId,
-            StudentName   = studentName.Trim(),
-            JoinedAt      = DateTime.Now,
-            LastActivity  = DateTime.Now
+            ConnectionId = Context.ConnectionId,
+            StudentName  = studentName.Trim(),
+            JoinedAt     = DateTime.Now,
+            LastActivity = DateTime.Now
         };
 
         _students[Context.ConnectionId] = status;
 
-        // Add to teacher group so teachers get all future updates
         await Groups.AddToGroupAsync(Context.ConnectionId, "students");
-
-        // Notify all teacher dashboards
         await Clients.Group("teachers").SendAsync("RosterChanged", GetRoster());
 
         return new JoinResult
@@ -67,7 +66,6 @@ public sealed class ClassroomHub : Hub
     public async Task JoinTeacherGroup()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, "teachers");
-        // Send current roster immediately
         await Clients.Caller.SendAsync("RosterChanged", GetRoster());
     }
 
@@ -88,6 +86,7 @@ public sealed class ClassroomHub : Hub
                     .OrderBy(s => s.JoinedAt)
                     .ToList();
 
-    /// <summary>Called by ClassroomServerService to wipe state on stop.</summary>
     internal static void ClearAll() => _students.Clear();
 }
+
+#endif
