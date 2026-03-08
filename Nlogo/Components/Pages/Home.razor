@@ -170,6 +170,15 @@
     private CancellationTokenSource? _cts;
 
     // ── Lifecycle ──────────────────────────────────────────────────
+    protected override void OnInitialized()
+    {
+        ChallengeService.ProgressChanged  += OnProgressChanged;
+        ClassroomClient.StateChanged      += OnClassroomStateChanged;
+    }
+
+    private void OnProgressChanged() => InvokeAsync(StateHasChanged);
+    private void OnClassroomStateChanged() => InvokeAsync(StateHasChanged);
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -329,6 +338,9 @@
     // ── Cleanup ────────────────────────────────────────────────────
     public async ValueTask DisposeAsync()
     {
+        ChallengeService.ProgressChanged -= OnProgressChanged;
+        ClassroomClient.StateChanged     -= OnClassroomStateChanged;
+
         if (_jsModule is not null)
             await _jsModule.DisposeAsync();
     }

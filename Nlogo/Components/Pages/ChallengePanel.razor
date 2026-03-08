@@ -3,6 +3,7 @@
 @using Nlogo.Services
 @using System.Text.RegularExpressions
 @inject ChallengeService Svc
+@inject ClassroomClientService ClassroomClient
 @implements IDisposable
 
 <div class="challenge-panel @(IsOpen ? "panel-open" : "")">
@@ -221,9 +222,9 @@
     // ── Timer ──────────────────────────────────────────────────────────────
     private void StartTimer()
     {
-        _timerCts    = new CancellationTokenSource();
+        _timerCts     = new CancellationTokenSource();
         _timerRunning = true;
-        _startTime   = DateTime.Now;
+        _startTime    = DateTime.Now;
         _ = RunTimerAsync(_timerCts.Token);
     }
 
@@ -281,7 +282,17 @@
             // 5. Persist best progress
             Svc.SaveProgress(_current.Id, result.Stars, _elapsed, code);
 
-            // 6. Stop timer on success
+            // 6. Push live update to teacher dashboard if in a class session
+            if (ClassroomClient.IsConnected)
+            {
+                await ClassroomClient.UpdateProgressAsync(
+                    _current.Id,
+                    _current.Title,
+                    Svc.TotalStars,
+                    Svc.CompletedCount);
+            }
+
+            // 7. Stop timer on success
             if (result.Stars > 0)
                 StopTimer();
         }

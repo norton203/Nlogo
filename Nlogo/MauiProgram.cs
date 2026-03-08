@@ -21,14 +21,19 @@ namespace Nlogo
 
             // ── Core services ──────────────────────────────────────────────
             // ProgressPersistenceService must be registered before ChallengeService
-            // because ChallengeService takes it as a constructor argument.
             builder.Services.AddSingleton<ProgressPersistenceService>();
             builder.Services.AddSingleton<ChallengeService>();
 
-            // ── Teacher portal / offline submission services ───────────────
+            // ── Teacher portal / offline submission ────────────────────────
             builder.Services.AddSingleton<StudentSettingsService>();
             builder.Services.AddSingleton<ImportService>();
             builder.Services.AddScoped<OfflineExportService>();
+
+            // ── Live classroom ─────────────────────────────────────────────
+            // Teacher side: hosts the SignalR server on the local network
+            builder.Services.AddSingleton<ClassroomServerService>();
+            // Student side: connects to the teacher's hub
+            builder.Services.AddSingleton<ClassroomClientService>();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
