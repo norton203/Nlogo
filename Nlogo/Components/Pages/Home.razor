@@ -33,7 +33,19 @@
                Color="Color.Default"
                StartIcon="@Icons.Material.Filled.RestartAlt"
                OnClick="ClearCanvas">Clear</MudButton>
+    <MudDivider Vertical="true" FlexItem="true" />
 
+    <MudIconButton Icon="@Icons.Material.Filled.FolderOpen"
+                   Title="Open file"
+                   OnClick="OpenFile" />
+
+    <MudIconButton Icon="@Icons.Material.Filled.Save"
+                   Title="Save (overwrites current file)"
+                   OnClick="SaveFile" />
+
+    <MudIconButton Icon="@Icons.Material.Filled.DriveFolderUpload"
+                   Title="Save As…"
+                   OnClick="SaveFileAs" />
     <MudDivider Vertical="true" FlexItem="true" />
 
     <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" />
@@ -94,7 +106,7 @@
         <div class="editor-pane">
             <div class="pane-header">
                 <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
-                <MudText Typo="Typo.caption" Class="ml-1">Editor</MudText>
+                <MudText Typo="Typo.caption" Class="ml-1">@CurrentFileName</MudText>
                 <MudSpacer />
                 <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                Size="Size.Small" Title="Copy code"
@@ -158,6 +170,14 @@
 </div>
 
 @code {
+
+    // ── File state ──────────────────────────────────────────────────
+    private string? _currentFilePath;
+
+    private string CurrentFileName =>
+        _currentFilePath is null
+            ? "Untitled.logo"
+            : Path.GetFileName(_currentFilePath);
 
     // ── State ──────────────────────────────────────────────────────
     private int _speed = 5;
@@ -350,4 +370,119 @@
         string Prefix = "  ",
         bool IsError = false,
         bool IsSystem = false);
+
+    // ── Open ────────────────────────────────────────────────────────
+    private async Task OpenFile()
+    {
+        var result = await FilePicker.PickAsync(new PickOptions
+        {
+            PickerTitle = "Open Logo file",
+            FileTypes = new FilePickerFileType(
+                new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                { DevicePlatform.WinUI, new[] { ".logo", ".txt" } },
+                { DevicePlatform.macOS, new[] { "logo", "txt"   } },
+                })
+        });
+
+        if (result is null) return;
+
+        try
+        {
+            var code = await File.ReadAllTextAsync(result.FullPath);
+            _currentFilePath = result.FullPath;
+
+            if (_jsModule is not null)
+                await _jsModule.InvokeVoidAsync("setEditorValue", code);
+
+            _consoleLines.Clear();
+            _statusMessage = "Ready";
+            Log($"📂 Opened: {CurrentFileName}", isSystem: true);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Log($"Could not open file: {ex.Message}", isError: true);
+        }
+    }
+
+    // ── Save (overwrite) ────────────────────────────────────────────
+    private async Task SaveFile()
+    {
+        // No path yet → behave like Save As
+        if (_currentFilePath is null) { await SaveFileAs(); return; }
+
+        try
+        {
+            var code = _jsModule is not null
+                ? await _jsModule.InvokeAsync<string>("getEditorValue")
+                : string.Empty;
+
+            await File.WriteAllTextAsync(_currentFilePath, code);
+            _statusMessage = "Saved";
+            Log($"💾 Saved: {CurrentFileName}", isSystem: true);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Log($"Could not save file: {ex.Message}", isError: true);
+        }
+    }
+
+    // ── Save As ─────────────────────────────────────────────────────
+    private async Task SaveFileAs()
+    {
+        var code = _jsModule is not null
+            ? await _jsModule.InvokeAsync<string>("getEditorValue")
+            : string.Empty;
+
+#if WINDOWS
+    try
+    {
+        var picker = new Windows.Storage.Pickers.FileSavePicker();
+
+        // MAUI requires attaching the picker to the app window
+        var win = Application.Current?.Windows[0]?.Handler?.PlatformView
+                  as Microsoft.UI.Xaml.Window;
+        if (win is not null)
+            WinRT.Interop.InitializeWithWindow.Initialize(
+                picker, WinRT.Interop.WindowNative.GetWindowHandle(win));
+
+        picker.SuggestedStartLocation =
+            Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
+        picker.FileTypeChoices.Add("Logo Files", new List<string> { ".logo" });
+        picker.FileTypeChoices.Add("Text Files", new List<string> { ".txt"  });
+        picker.SuggestedFileName = CurrentFileName;
+
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;   // user cancelled
+
+        await Windows.Storage.FileIO.WriteTextAsync(file, code);
+        _currentFilePath = file.Path;
+        _statusMessage = "Saved";
+        Log($"💾 Saved: {CurrentFileName}", isSystem: true);
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        Log($"Could not save file: {ex.Message}", isError: true);
+    }
+#else
+        // Non-Windows fallback: save to the user's Documents folder
+        try
+        {
+            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var path = Path.Combine(docs, CurrentFileName);
+            await File.WriteAllTextAsync(path, code);
+            _currentFilePath = path;
+            _statusMessage = "Saved";
+            Log($"💾 Saved to: {path}", isSystem: true);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Log($"Could not save file: {ex.Message}", isError: true);
+        }
+#endif
+    }
 }
