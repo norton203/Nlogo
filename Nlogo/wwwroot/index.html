@@ -7,7 +7,7 @@
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="Nlogo.styles.css" />
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/png" href="nlogo_icon.png">
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
 </head>
@@ -16,7 +16,259 @@
 
     <div class="status-bar-safe-area"></div>
 
-    <div id="app">Loading...</div>
+    <div id="app">
+        <!-- ═══ NLogo Loading Screen ═══════════════════════════════════════════ -->
+        <style>
+            #nlogo-loader * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0
+            }
+
+            #nlogo-loader {
+                position: fixed;
+                inset: 0;
+                background: #0b1222;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                font-family: 'JetBrains Mono',monospace;
+                z-index: 9999;
+                animation: loader-exit .4s 3.5s ease-in forwards;
+            }
+
+            @keyframes loader-exit {
+                to {
+                    opacity: 0;
+                    pointer-events: none
+                }
+            }
+
+            .nl-grid {
+                position: absolute;
+                inset: 0;
+                background-image: linear-gradient(rgba(56,189,248,.06) 1px,transparent 1px), linear-gradient(90deg,rgba(56,189,248,.06) 1px,transparent 1px);
+                background-size: 36px 36px;
+            }
+
+            .nl-glow {
+                position: absolute;
+                width: 420px;
+                height: 420px;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%,-65%);
+                background: radial-gradient(circle,rgba(34,197,94,.1) 0%,transparent 70%);
+                border-radius: 50%;
+                animation: nl-pulse 2.8s ease-in-out infinite;
+            }
+
+            @keyframes nl-pulse {
+                0%,100% {
+                    transform: translate(-50%,-65%) scale(1)
+                }
+
+                50% {
+                    transform: translate(-50%,-65%) scale(1.2)
+                }
+            }
+
+            .nl-turtle {
+                position: relative;
+                z-index: 2;
+                animation: nl-bob 2.6s ease-in-out infinite;
+                filter: drop-shadow(0 0 16px rgba(34,197,94,.7));
+            }
+
+            @keyframes nl-bob {
+                0%,100% {
+                    transform: translateY(0) rotate(-1deg)
+                }
+
+                50% {
+                    transform: translateY(-10px) rotate(1deg)
+                }
+            }
+
+            .nl-brand {
+                position: relative;
+                z-index: 2;
+                margin-top: 22px;
+                font-size: 2.6rem;
+                font-weight: 700;
+                letter-spacing: -.02em;
+                opacity: 0;
+                animation: nl-up .7s .3s forwards;
+            }
+
+                .nl-brand .n {
+                    color: #38bdf8
+                }
+
+                .nl-brand .lo {
+                    color: #f0f6ff
+                }
+
+                .nl-brand .go {
+                    color: #22c55e
+                }
+
+            .nl-sub {
+                position: relative;
+                z-index: 2;
+                margin-top: 8px;
+                font-size: .65rem;
+                color: #4a6080;
+                letter-spacing: .2em;
+                text-transform: uppercase;
+                opacity: 0;
+                animation: nl-up .7s .5s forwards;
+            }
+
+            .nl-bar-wrap {
+                position: relative;
+                z-index: 2;
+                margin-top: 36px;
+                width: 240px;
+                opacity: 0;
+                animation: nl-up .7s .7s forwards;
+            }
+
+            .nl-track {
+                height: 3px;
+                background: rgba(56,189,248,.12);
+                border-radius: 99px;
+                overflow: hidden
+            }
+
+            .nl-fill {
+                height: 100%;
+                width: 0%;
+                border-radius: 99px;
+                background: linear-gradient(90deg,#38bdf8,#22c55e);
+                box-shadow: 0 0 8px #38bdf8;
+                animation: nl-fill 2.6s .9s cubic-bezier(.4,0,.2,1) forwards;
+            }
+
+            @keyframes nl-fill {
+                0% {
+                    width: 0%
+                }
+
+                40% {
+                    width: 55%
+                }
+
+                75% {
+                    width: 82%
+                }
+
+                100% {
+                    width: 100%
+                }
+            }
+
+            .nl-status {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 8px
+            }
+
+            .nl-msg, .nl-pct {
+                font-size: .62rem;
+                color: #4a6080
+            }
+
+            .nl-pct {
+                color: #38bdf8
+            }
+
+            @keyframes nl-up {
+                from {
+                    opacity: 0;
+                    transform: translateY(12px)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0)
+                }
+            }
+            /* hide loader once Blazor replaces #app content */
+            #app:not(:has(#nlogo-loader)) {
+                display: contents
+            }
+        </style>
+
+        <div id="nlogo-loader">
+            <div class="nl-grid"></div>
+            <div class="nl-glow"></div>
+
+            <!-- Inline SVG turtle so no external file needed -->
+            <svg class="nl-turtle" width="110" height="110" viewBox="0 0 140 140" fill="none">
+                <ellipse cx="30" cy="72" rx="18" ry="11" fill="#16a34a" transform="rotate(-25 30 72)" />
+                <ellipse cx="110" cy="72" rx="18" ry="11" fill="#16a34a" transform="rotate(25 110 72)" />
+                <ellipse cx="34" cy="100" rx="15" ry="10" fill="#16a34a" transform="rotate(20 34 100)" />
+                <ellipse cx="106" cy="100" rx="15" ry="10" fill="#16a34a" transform="rotate(-20 106 100)" />
+                <ellipse cx="70" cy="118" rx="8" ry="14" fill="#16a34a" />
+                <ellipse cx="70" cy="82" rx="50" ry="38" fill="#15803d" />
+                <ellipse cx="70" cy="78" rx="44" ry="33" fill="#22c55e" />
+                <ellipse cx="70" cy="72" rx="30" ry="20" fill="#4ade80" opacity=".5" />
+                <circle cx="70" cy="68" r="11" fill="#16a34a" opacity=".8" />
+                <circle cx="70" cy="68" r="6" fill="#10b981" opacity=".7" />
+                <circle cx="50" cy="78" r="9" fill="#16a34a" opacity=".8" />
+                <circle cx="50" cy="78" r="5" fill="#10b981" opacity=".7" />
+                <circle cx="90" cy="78" r="9" fill="#16a34a" opacity=".8" />
+                <circle cx="90" cy="78" r="5" fill="#10b981" opacity=".7" />
+                <circle cx="60" cy="94" r="8" fill="#16a34a" opacity=".8" />
+                <circle cx="80" cy="94" r="8" fill="#16a34a" opacity=".8" />
+                <rect x="60" y="42" width="20" height="22" rx="10" fill="#22c55e" />
+                <circle cx="70" cy="38" r="22" fill="#22c55e" />
+                <circle cx="70" cy="35" r="16" fill="#4ade80" opacity=".5" />
+                <circle cx="62" cy="32" r="7" fill="white" />
+                <circle cx="78" cy="32" r="7" fill="white" />
+                <circle cx="63" cy="33" r="4" fill="#0b1220" />
+                <circle cx="79" cy="33" r="4" fill="#0b1220" />
+                <circle cx="62" cy="31" r="1.5" fill="white" opacity=".9" />
+                <circle cx="78" cy="31" r="1.5" fill="white" opacity=".9" />
+            </svg>
+
+            <div class="nl-brand">
+                <span class="n">N</span><span class="lo">Lo</span><span class="go">go</span>
+            </div>
+            <div class="nl-sub">Logo Language IDE · .NET 10 MAUI</div>
+
+            <div class="nl-bar-wrap">
+                <div class="nl-track"><div class="nl-fill"></div></div>
+                <div class="nl-status">
+                    <span class="nl-msg" id="nl-msg">Initialising…</span>
+                    <span class="nl-pct" id="nl-pct">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                var msgs = [
+                    [0, 'Initialising…'], [20, 'Loading compiler…'],
+                    [50, 'Preparing canvas…'], [80, 'Starting IDE…'], [99, 'Ready!']
+                ];
+                var start = Date.now(), dur = 2600;
+                var msgEl = document.getElementById('nl-msg');
+                var pctEl = document.getElementById('nl-pct');
+                function tick() {
+                    var p = Math.min(100, Math.floor((Date.now() - start) / dur * 100));
+                    if (pctEl) pctEl.textContent = p + '%';
+                    for (var i = msgs.length - 1; i >= 0; i--) {
+                        if (p >= msgs[i][0]) { if (msgEl) msgEl.textContent = msgs[i][1]; break; }
+                    }
+                    if (p < 100) requestAnimationFrame(tick);
+                }
+                requestAnimationFrame(tick);
+            })();
+        </script>
+    </div>
 
     <div id="blazor-error-ui" data-nosnippet>
         An unhandled error has occurred.

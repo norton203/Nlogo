@@ -26,8 +26,16 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+		<!-- App icon: PNG source + foreground layer, dark navy background -->
+		<MauiIcon Include="Resources\AppIcon\appicon.png"
+		          ForegroundFile="Resources\AppIcon\appiconfg.png"
+		          Color="#0B1222" />
+
+		<!-- Splash screen: same source image, MAUI centres it automatically -->
+		<MauiSplashScreen Include="Resources\Splash\splash.png"
+		                  Color="#0B1222"
+		                  BaseSize="128,128" />
+
 		<MauiImage Include="Resources\Images\*" />
 		<MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
 		<MauiFont Include="Resources\Fonts\*" />
@@ -35,11 +43,11 @@
 	</ItemGroup>
 
 	<!--
-        Microsoft.AspNetCore.App (Kestrel + SignalR server + WebApplication) only
-        ships for Windows/Linux/macOS desktop. iOS and Mac Catalyst have no server
-        runtime pack, so we scope this reference to Windows targets only.
-        The ClassroomServerService and ClassroomHub files use #if WINDOWS to match.
-    -->
+	    Microsoft.AspNetCore.App (Kestrel + SignalR server + WebApplication) only
+	    ships for Windows/Linux/macOS desktop. iOS and Mac Catalyst have no server
+	    runtime pack, so we scope this reference to Windows targets only.
+	    The ClassroomServerService and ClassroomHub files use #if WINDOWS to match.
+	-->
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
