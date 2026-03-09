@@ -119,7 +119,7 @@ dotnet workload install maui
 ### Clone & Run
 
 ```bash
-git clone https://github.com/your-username/nlogo.git
+git clone https://github.com/norton203/nlogo.git
 cd nlogo
 dotnet restore
 ```
