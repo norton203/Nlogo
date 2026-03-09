@@ -70,7 +70,23 @@
             </MudChip>
         }
     </MudButton>
+    <MudDivider Vertical="true" FlexItem="true" />
 
+    <!-- ── Examples menu ── -->
+    <MudMenu Label="Examples" Variant="Variant.Outlined" Color="Color.Info"
+             StartIcon="@Icons.Material.Filled.AutoAwesome"
+             AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
+        @foreach (var ex in _examples)
+        {
+            var captured = ex;
+            <MudMenuItem OnClick="@(() => LoadExample(captured))">
+                <div style="display:flex; flex-direction:column; gap:2px">
+                    <span>@captured.Emoji &nbsp;<strong>@captured.Title</strong></span>
+                    <span style="font-size:0.72rem; opacity:0.65">@captured.Description</span>
+                </div>
+            </MudMenuItem>
+        }
+    </MudMenu>
     <MudSpacer />
     <MudIconButton Icon="@Icons.Material.Filled.Home"
                    Title="Back to menu"
@@ -484,5 +500,146 @@
             Log($"Could not save file: {ex.Message}", isError: true);
         }
 #endif
+    }
+    // ── Example snippets ───────────────────────────────────────────
+    private record SnippetExample(string Emoji, string Title, string Description, string Code);
+
+    private static readonly IReadOnlyList<SnippetExample> _examples =
+    [
+        new("🔷", "Square",
+        "Basic movement and REPEAT",
+        """
+        ; 🔷 Square
+        ; Move forward and turn right 4 times to draw a square.
+        ; Try changing the 100 to make it bigger or smaller!
+
+        REPEAT 4 [
+          FD 100
+          RT 90
+        ]
+        """),
+
+    new("🌀", "Spiral",
+        "Variables that grow with each step",
+        """
+        ; 🌀 Spiral
+        ; The turtle moves a little further each time,
+        ; creating an expanding spiral.
+
+        MAKE "size 5
+
+        REPEAT 80 [
+          FD :size
+          RT 31
+          MAKE "size :size + 3
+        ]
+        """),
+
+    new("🔵", "Spinning Squares",
+        "Nested loops to build patterns",
+        """
+        ; 🔵 Spinning Squares
+        ; Draw a square, rotate a little, repeat 18 times.
+        ; Watch the pattern build up!
+
+        REPEAT 18 [
+          REPEAT 4 [
+            FD 100
+            RT 90
+          ]
+          RT 20
+        ]
+        """),
+
+    new("🌈", "Rainbow Star",
+        "Colours and geometry combined",
+        """
+        ; 🌈 Rainbow Star
+        ; Each point of the star is a different colour.
+        ; A 5-pointed star turns 144 degrees at each tip.
+
+        SETCOLOR "red
+        FD 150  RT 144
+        SETCOLOR "orange
+        FD 150  RT 144
+        SETCOLOR "yellow
+        FD 150  RT 144
+        SETCOLOR "green
+        FD 150  RT 144
+        SETCOLOR "blue
+        FD 150  RT 144
+        """),
+
+    new("🌲", "Fractal Tree",
+        "Recursion with TO and END",
+        """
+        ; 🌲 Fractal Tree
+        ; The TREE procedure calls itself to draw branches.
+        ; Each branch is 70% the size of its parent.
+
+        TO TREE :size
+          IF :size < 5 [ STOP ]
+          FD :size
+          RT 25
+          TREE :size * 0.7
+          LT 50
+          TREE :size * 0.7
+          RT 25
+          BK :size
+        END
+
+        ; Start drawing — try changing 80 for a bigger/smaller tree
+        TREE 80
+        """),
+
+    new("🔶", "Polygon Maker",
+        "Procedures with parameters",
+        """
+        ; 🔶 Polygon Maker
+        ; POLYGON draws any regular shape.
+        ; It takes two inputs: number of sides, and side length.
+
+        TO POLYGON :sides :size
+          REPEAT :sides [
+            FD :size
+            RT 360 / :sides
+          ]
+        END
+
+        ; Draw a triangle, pentagon, and octagon
+        SETCOLOR "red
+        POLYGON 3 90
+
+        HOME
+        SETCOLOR "blue
+        POLYGON 5 70
+
+        HOME
+        SETCOLOR "green
+        POLYGON 8 55
+        """),
+];
+
+    private async Task LoadExample(SnippetExample example)
+    {
+        if (_jsModule is null) return;
+
+        // Strip the C# raw-string indentation so the editor looks clean
+        var lines = example.Code.Split('\n');
+        var indent = lines
+            .Where(l => l.Trim().Length > 0)
+            .Select(l => l.Length - l.TrimStart().Length)
+            .DefaultIfEmpty(0)
+            .Min();
+
+        var cleaned = string.Join('\n', lines.Select(l =>
+            l.Length >= indent ? l[indent..] : l)).Trim();
+
+        await _jsModule.InvokeVoidAsync("setEditorValue", cleaned);
+        _consoleLines.Clear();
+        _statusMessage = "Ready";
+        _currentFilePath = null;   // treat as an unsaved new file
+        Log($"📋 Loaded example: {example.Emoji} {example.Title}", isSystem: true);
+        StateHasChanged();
     }
 }
