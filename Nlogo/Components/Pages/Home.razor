@@ -20,27 +20,30 @@
 
     <!-- Run: full button on desktop, icon-only label hidden on mobile -->
     <MudButton Variant="Variant.Filled"
-               Color="Color.Success"
-               StartIcon="@Icons.Material.Filled.PlayArrow"
-               Disabled="@_isRunning"
-               OnClick="RunCode">
-        <span class="toolbar-text">Run</span>
-    </MudButton>
+           Color="Color.Success"
+           StartIcon="@Icons.Material.Filled.PlayArrow"
+           Disabled="@_isRunning"
+           Class="toolbar-action-btn"
+           OnClick="RunCode">
+    <span class="toolbar-text">Run</span>
+</MudButton>
 
-    <MudButton Variant="Variant.Outlined"
-               Color="Color.Error"
-               StartIcon="@Icons.Material.Filled.Stop"
-               Disabled="@(!_isRunning)"
-               OnClick="StopCode">
-        <span class="toolbar-text">Stop</span>
-    </MudButton>
+<MudButton Variant="Variant.Outlined"
+           Color="Color.Error"
+           StartIcon="@Icons.Material.Filled.Stop"
+           Disabled="@(!_isRunning)"
+           Class="toolbar-action-btn"
+           OnClick="StopCode">
+    <span class="toolbar-text">Stop</span>
+</MudButton>
 
-    <MudButton Variant="Variant.Outlined"
-               Color="Color.Default"
-               StartIcon="@Icons.Material.Filled.RestartAlt"
-               OnClick="ClearCanvas">
-        <span class="toolbar-text">Clear</span>
-    </MudButton>
+<MudButton Variant="Variant.Outlined"
+           Color="Color.Default"
+           StartIcon="@Icons.Material.Filled.RestartAlt"
+           Class="toolbar-action-btn"
+           OnClick="ClearCanvas">
+    <span class="toolbar-text">Clear</span>
+</MudButton>
 
     <MudDivider Vertical="true" FlexItem="true" />
 

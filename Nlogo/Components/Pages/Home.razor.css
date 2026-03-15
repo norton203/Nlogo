@@ -322,4 +322,23 @@
     .pane-header {
         padding: 0 4px;
     }
+    /* Give editor ≈ 65% of the pane height, console a fixed 90px    */
+    .editor-pane {
+        flex: 2 1 0;
+    }
+
+    .console-pane {
+        flex: 0 0 90px;
+        min-height: 90px;
+    }
+    /* Targets the buttons that have toolbar-text spans inside them   */
+    .mud-button-root:has(.toolbar-text) {
+        min-width: unset !important;
+        padding: 0 6px !important;
+    }
+    /* Compact action buttons to icon-only size when text is hidden */
+    .toolbar-action-btn {
+        min-width: unset !important;
+        padding: 0 8px !important;
+    }
 }

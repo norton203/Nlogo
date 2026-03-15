@@ -110,7 +110,7 @@ html, body {
     color: #d4d4d4;
 }
 /* ── Mobile / touch global fixes ───────────────────────────────── */
-@media (max-width: 600px) {
+@media (max-width: 600px), (max-height: 520px) and (orientation: landscape) {
 
     /* Ensure MudBlazor icon buttons are at least 44×44 px (touch target) */
     .mud-icon-button {
