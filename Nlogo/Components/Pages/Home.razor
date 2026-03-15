@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject ClassroomClientService ClassroomClient
 @implements IAsyncDisposable
+@using Nlogo.Services;
 
 <PageTitle>Logo IDE</PageTitle>
 
@@ -87,6 +88,43 @@
             </MudMenuItem>
         }
     </MudMenu>
+    <!-- ── Turtle shape picker ── -->
+    <MudMenu Label="@TurtleShapeLabel"
+             Variant="Variant.Outlined"
+             Color="Color.Tertiary"
+             StartIcon="@Icons.Material.Filled.Pets"
+             AnchorOrigin="Origin.BottomLeft"
+             TransformOrigin="Origin.TopLeft"
+             Title="Change turtle appearance">
+
+        <MudMenuItem Disabled="true">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">— Shapes —</MudText>
+        </MudMenuItem>
+        @foreach (var shape in TurtleShapes.Where(s => !s.Id.StartsWith("emoji:")))
+        {
+            var captured = shape;
+            <MudMenuItem OnClick="@(() => SetTurtleShape(captured.Id))">
+                <span style="display:flex; align-items:center; gap:8px">
+                    <span style="font-size:1.2rem">@captured.Emoji</span>
+                    <strong>@captured.Label</strong>
+                </span>
+            </MudMenuItem>
+        }
+
+        <MudMenuItem Disabled="true">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">— Emoji —</MudText>
+        </MudMenuItem>
+        @foreach (var shape in TurtleShapes.Where(s => s.Id.StartsWith("emoji:")))
+        {
+            var captured = shape;
+            <MudMenuItem OnClick="@(() => SetTurtleShape(captured.Id))">
+                <span style="display:flex; align-items:center; gap:8px">
+                    <span style="font-size:1.3rem">@captured.Emoji</span>
+                    <strong>@captured.Label</strong>
+                </span>
+            </MudMenuItem>
+        }
+    </MudMenu>
     <MudSpacer />
     <MudIconButton Icon="@Icons.Material.Filled.Home"
                    Title="Back to menu"
@@ -127,6 +165,11 @@
                 <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                Size="Size.Small" Title="Copy code"
                                OnClick="CopyCode" />
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever"
+                               Size="Size.Small" Title="Clear editor"
+                               Color="Color.Error"
+                               OnClick="ClearEditor" />
+
             </div>
 
             <div class="mirror-wrapper">
@@ -187,13 +230,36 @@
 
 @code {
 
+    private static readonly (string Id, string Emoji, string Label)[] TurtleShapes =
+    [
+        // ── Classic shapes
+        ("arrow",  "🔺", "Arrow"),
+    ("turtle", "🐢", "Turtle"),
+    ("dot",    "⭕", "Dot"),
+    ("rocket", "🚀", "Rocket"),
+    ("bug",    "🐛", "Bug"),
+    // ── Emoji shapes
+    ("emoji:💩", "💩", "Poo"),
+    ("emoji:👾", "👾", "Alien"),
+    ("emoji:🦆", "🦆", "Duck"),
+    ("emoji:🐸", "🐸", "Frog"),
+    ("emoji:👻", "👻", "Ghost"),
+    ("emoji:🤖", "🤖", "Robot"),
+    ("emoji:🦄", "🦄", "Unicorn"),
+    ("emoji:⭐", "⭐", "Star"),
+    ("emoji:🦖", "🦖", "Dino"),
+    ("emoji:🐙", "🐙", "Octopus"),
+    ("emoji:🍕", "🍕", "Pizza"),
+    ("emoji:🎃", "🎃", "Pumpkin"),
+];
+
     // ── File state ──────────────────────────────────────────────────
     private string? _currentFilePath;
 
     private string CurrentFileName =>
-        _currentFilePath is null
-            ? "Untitled.logo"
-            : Path.GetFileName(_currentFilePath);
+      _currentFilePath is not null
+          ? Path.GetFileName(_currentFilePath)
+          : "untitled.nlogo";
 
     // ── State ──────────────────────────────────────────────────────
     private int _speed = 5;
@@ -204,6 +270,31 @@
     private readonly List<ConsoleLine> _consoleLines = new();
     private IJSObjectReference? _jsModule;
     private CancellationTokenSource? _cts;
+
+
+    // ── Turtle shape picker ────────────────────────────────────────
+   
+
+    private string _turtleShape = "arrow";
+
+    private string TurtleShapeLabel
+    {
+        get
+        {
+            var s = TurtleShapes.FirstOrDefault(x => x.Id == _turtleShape);
+            return s == default ? "🔺 Arrow" : $"{s.Emoji} {s.Label}";
+        }
+    }
+
+    private async Task SetTurtleShape(string shapeId)
+    {
+        _turtleShape = shapeId;
+        if (_jsModule is not null)
+            await _jsModule.InvokeVoidAsync("setTurtleShape", shapeId);
+    }
+
+
+
 
     // ── Lifecycle ──────────────────────────────────────────────────
     protected override void OnInitialized()
@@ -392,28 +483,50 @@
     {
         var result = await FilePicker.PickAsync(new PickOptions
         {
-            PickerTitle = "Open Logo file",
+            PickerTitle = "Open NLogo source file",
             FileTypes = new FilePickerFileType(
                 new Dictionary<DevicePlatform, IEnumerable<string>>
                 {
-                { DevicePlatform.WinUI, new[] { ".logo", ".txt" } },
-                { DevicePlatform.macOS, new[] { "logo", "txt"   } },
+                { DevicePlatform.WinUI,   new[] { ".nlogo", ".logo" } },
+                { DevicePlatform.macOS,   new[] { "nlogo",  "logo"  } },
+                { DevicePlatform.Android, new[] { "application/octet-stream" } },
+                { DevicePlatform.iOS,     new[] { "public.data" } },
                 })
         });
 
         if (result is null) return;
 
+        // Extra guard — reject anything that slipped past the picker filter
+        if (!NLogoFileFormat.IsSupported(result.FullPath))
+        {
+            Log("❌ Unsupported file type. Please open a .nlogo file.", isError: true);
+            return;
+        }
+
         try
         {
-            var code = await File.ReadAllTextAsync(result.FullPath);
+            var raw = await File.ReadAllTextAsync(result.FullPath);
+            var ext = Path.GetExtension(result.FullPath);
+            var parsed = NLogoFileFormat.Unwrap(raw, ext);
+
+            if (!parsed.Valid)
+            {
+                Log($"❌ {parsed.Warning}", isError: true);
+                return;
+            }
+
             _currentFilePath = result.FullPath;
 
             if (_jsModule is not null)
-                await _jsModule.InvokeVoidAsync("setEditorValue", code);
+                await _jsModule.InvokeVoidAsync("setEditorValue", parsed.Code ?? string.Empty);
 
             _consoleLines.Clear();
             _statusMessage = "Ready";
             Log($"📂 Opened: {CurrentFileName}", isSystem: true);
+
+            if (parsed.Warning is not null)
+                Log(parsed.Warning, isError: true);   // checksum mismatch — non-fatal
+
             StateHasChanged();
         }
         catch (Exception ex)
@@ -425,16 +538,24 @@
     // ── Save (overwrite) ────────────────────────────────────────────
     private async Task SaveFile()
     {
-        // No path yet → behave like Save As
         if (_currentFilePath is null) { await SaveFileAs(); return; }
+
+        // Ensure the current path has the right extension (upgrade .logo → .nlogo)
+        if (!Path.GetExtension(_currentFilePath)
+                .Equals(NLogoFileFormat.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            _currentFilePath = Path.ChangeExtension(
+                _currentFilePath, NLogoFileFormat.Extension);
+        }
 
         try
         {
             var code = _jsModule is not null
-                ? await _jsModule.InvokeAsync<string>("getEditorValue")
-                : string.Empty;
+                          ? await _jsModule.InvokeAsync<string>("getEditorValue")
+                          : string.Empty;
 
-            await File.WriteAllTextAsync(_currentFilePath, code);
+            var wrapped = NLogoFileFormat.Wrap(code);
+            await File.WriteAllTextAsync(_currentFilePath, wrapped);
             _statusMessage = "Saved";
             Log($"💾 Saved: {CurrentFileName}", isSystem: true);
             StateHasChanged();
@@ -444,7 +565,6 @@
             Log($"Could not save file: {ex.Message}", isError: true);
         }
     }
-
     // ── Save As ─────────────────────────────────────────────────────
     private async Task SaveFileAs()
     {
@@ -452,12 +572,11 @@
             ? await _jsModule.InvokeAsync<string>("getEditorValue")
             : string.Empty;
 
+        var wrapped = NLogoFileFormat.Wrap(code);
 #if WINDOWS
-    try
-    {
-        var picker = new Windows.Storage.Pickers.FileSavePicker();
-
-        // MAUI requires attaching the picker to the app window
+try
+{
+var picker = new Windows.Storage.Pickers.FileSavePicker();
         var win = Application.Current?.Windows[0]?.Handler?.PlatformView
                   as Microsoft.UI.Xaml.Window;
         if (win is not null)
@@ -466,14 +585,13 @@
 
         picker.SuggestedStartLocation =
             Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-        picker.FileTypeChoices.Add("Logo Files", new List<string> { ".logo" });
-        picker.FileTypeChoices.Add("Text Files", new List<string> { ".txt"  });
-        picker.SuggestedFileName = CurrentFileName;
+        picker.FileTypeChoices.Add("NLogo Source File", new List<string> { ".nlogo" });
+        picker.SuggestedFileName = Path.GetFileNameWithoutExtension(CurrentFileName);
 
         var file = await picker.PickSaveFileAsync();
-        if (file is null) return;   // user cancelled
+        if (file is null) return;
 
-        await Windows.Storage.FileIO.WriteTextAsync(file, code);
+        await Windows.Storage.FileIO.WriteTextAsync(file, wrapped);
         _currentFilePath = file.Path;
         _statusMessage = "Saved";
         Log($"💾 Saved: {CurrentFileName}", isSystem: true);
@@ -484,12 +602,12 @@
         Log($"Could not save file: {ex.Message}", isError: true);
     }
 #else
-        // Non-Windows fallback: save to the user's Documents folder
         try
         {
             var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            var path = Path.Combine(docs, CurrentFileName);
-            await File.WriteAllTextAsync(path, code);
+            var name = Path.ChangeExtension(CurrentFileName, NLogoFileFormat.Extension);
+            var path = Path.Combine(docs, name);
+            await File.WriteAllTextAsync(path, wrapped);
             _currentFilePath = path;
             _statusMessage = "Saved";
             Log($"💾 Saved to: {path}", isSystem: true);
@@ -640,6 +758,22 @@
         _statusMessage = "Ready";
         _currentFilePath = null;   // treat as an unsaved new file
         Log($"📋 Loaded example: {example.Emoji} {example.Title}", isSystem: true);
+        StateHasChanged();
+    }
+    private async Task ClearEditor()
+    {
+        if (_jsModule is null) return;
+
+        // Confirm before wiping — students will thank you
+        bool confirmed = await JS.InvokeAsync<bool>(
+            "confirm", "Clear the editor? Any unsaved code will be lost.");
+        if (!confirmed) return;
+
+        await _jsModule.InvokeVoidAsync("setEditorValue", string.Empty);
+        _currentFilePath = null;          // treat as a fresh unsaved file
+        _consoleLines.Clear();
+        _statusMessage = "Ready";
+        Log("Editor cleared.", isSystem: true);
         StateHasChanged();
     }
 }
