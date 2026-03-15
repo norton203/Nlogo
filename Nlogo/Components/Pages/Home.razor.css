@@ -274,3 +274,52 @@
     word-wrap: break-word;
     overflow: auto;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Landscape phone layout  (height ≤ 520 px — phones in landscape)
+  
+   ════════════════════════════════════════════════════════════════ */
+@media (max-height: 520px) and (orientation: landscape) {
+
+    /* Shrink toolbar to recover vertical space */
+    :root {
+        --toolbar-h: 42px;
+        --header-h: 24px;
+    }
+
+    /* Hide verbose text labels in the toolbar */
+    .toolbar-text {
+        display: none !important;
+    }
+
+    /* Hide the speed slider group entirely — not critical on mobile */
+    .toolbar-speed-group {
+        display: none !important;
+    }
+
+    /* Prevent Android auto-zoom on the textarea (must be ≥ 16 px) */
+    .code-editor {
+        font-size: 16px !important;
+        line-height: 1.55 !important;
+    }
+
+    .highlight-layer,
+    #lineNumbers {
+        font-size: 16px !important;
+        line-height: 1.55 !important;
+    }
+
+        #lineNumbers div {
+            height: calc(16px * 1.55) !important;
+        }
+
+    /* Tighten console output */
+    .console-output {
+        font-size: 12px !important;
+    }
+
+    /* Shrink pane headers to save a few more pixels */
+    .pane-header {
+        padding: 0 4px;
+    }
+}

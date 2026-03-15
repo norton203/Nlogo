@@ -440,6 +440,11 @@ export function saveCanvasImage(filename) {
     link.href = tmp.toDataURL('image/png');
     link.click();
 }
+// Called by Blazor when the canvas tab becomes visible on mobile
+// (ResizeObserver won't fire for previously-hidden elements)
+export function reflowCanvas() {
+    fitCanvasToWrapper();
+}
 // ── Canvas stats for challenge validation ─────────────────────────
 // Returns pixel count and bounding-box aspect ratio of drawn content.
 // The canvas CSS background is white, but pixels are transparent until drawn,
@@ -654,6 +659,9 @@ function initAutoComplete(textarea) {
 
 // ── Triggered on each input event ────────────────────────────────
 function acOnInput(textarea) {
+    // Don't show autocomplete on narrow screens — the virtual keyboard
+    // leaves no room and the position calculation breaks on mobile.
+    if (window.innerWidth <= 600) { acHide(); return; }
     const word = acCurrentWord(textarea);
 
     if (!word) { acHide(); return; }

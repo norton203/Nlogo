@@ -14,55 +14,64 @@
 <MudPaper Elevation="3" Class="toolbar-bar d-flex align-center gap-2 pa-2" Square="true">
 
     <MudIcon Icon="@Icons.Material.Filled.Polyline" Color="Color.Primary" Class="ml-1" />
-    <MudText Typo="Typo.h6" Color="Color.Primary" Class="mr-3">Logo IDE</MudText>
+    <MudText Typo="Typo.h6" Color="Color.Primary" Class="mr-2 toolbar-text">Logo IDE</MudText>
 
     <MudDivider Vertical="true" FlexItem="true" />
 
+    <!-- Run: full button on desktop, icon-only label hidden on mobile -->
     <MudButton Variant="Variant.Filled"
                Color="Color.Success"
                StartIcon="@Icons.Material.Filled.PlayArrow"
                Disabled="@_isRunning"
-               OnClick="RunCode">Run</MudButton>
+               OnClick="RunCode">
+        <span class="toolbar-text">Run</span>
+    </MudButton>
 
     <MudButton Variant="Variant.Outlined"
                Color="Color.Error"
                StartIcon="@Icons.Material.Filled.Stop"
                Disabled="@(!_isRunning)"
-               OnClick="StopCode">Stop</MudButton>
+               OnClick="StopCode">
+        <span class="toolbar-text">Stop</span>
+    </MudButton>
 
     <MudButton Variant="Variant.Outlined"
                Color="Color.Default"
                StartIcon="@Icons.Material.Filled.RestartAlt"
-               OnClick="ClearCanvas">Clear</MudButton>
+               OnClick="ClearCanvas">
+        <span class="toolbar-text">Clear</span>
+    </MudButton>
+
     <MudDivider Vertical="true" FlexItem="true" />
 
     <MudIconButton Icon="@Icons.Material.Filled.FolderOpen"
                    Title="Open file"
                    OnClick="OpenFile" />
-
     <MudIconButton Icon="@Icons.Material.Filled.Save"
-                   Title="Save (overwrites current file)"
+                   Title="Save"
                    OnClick="SaveFile" />
-
     <MudIconButton Icon="@Icons.Material.Filled.DriveFolderUpload"
                    Title="Save As…"
                    OnClick="SaveFileAs" />
-    <MudDivider Vertical="true" FlexItem="true" />
-
-    <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" />
-    <MudText Typo="Typo.caption" Class="mr-1">Speed</MudText>
-    <MudSlider T="int" @bind-Value="_speed" Min="1" Max="10"
-               Color="Color.Primary" Style="width:130px; margin-bottom:0" />
-    <MudText Typo="Typo.caption">@_speed</MudText>
 
     <MudDivider Vertical="true" FlexItem="true" />
 
-    <!-- ── Challenge toggle ── -->
+    <!-- Speed group — hidden entirely on landscape phones -->
+    <div class="d-flex align-center gap-1 toolbar-speed-group">
+        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Small" />
+        <MudText Typo="Typo.caption">Speed</MudText>
+        <MudSlider T="int" @bind-Value="_speed" Min="1" Max="10"
+                   Color="Color.Primary" Style="width:130px; margin-bottom:0" />
+        <MudText Typo="Typo.caption">@_speed</MudText>
+    </div>
+
+    <MudDivider Vertical="true" FlexItem="true" Class="toolbar-speed-group" />
+
     <MudButton Variant="@(_challengePanelOpen? Variant.Filled: Variant.Outlined)"
                Color="Color.Secondary"
                StartIcon="@Icons.Material.Filled.School"
                OnClick="ToggleChallengePanel">
-        Challenges
+        <span class="toolbar-text">Challenges</span>
         @if (ChallengeService.TotalStars > 0)
         {
             <MudChip T="string" Size="Size.Small" Color="Color.Warning"
@@ -71,9 +80,9 @@
             </MudChip>
         }
     </MudButton>
+
     <MudDivider Vertical="true" FlexItem="true" />
 
-    <!-- ── Examples menu ── -->
     <MudMenu Label="Examples" Variant="Variant.Outlined" Color="Color.Info"
              StartIcon="@Icons.Material.Filled.AutoAwesome"
              AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
@@ -88,7 +97,7 @@
             </MudMenuItem>
         }
     </MudMenu>
-    <!-- ── Turtle shape picker ── -->
+
     <MudMenu Label="@TurtleShapeLabel"
              Variant="Variant.Outlined"
              Color="Color.Tertiary"
@@ -96,7 +105,6 @@
              AnchorOrigin="Origin.BottomLeft"
              TransformOrigin="Origin.TopLeft"
              Title="Change turtle appearance">
-
         <MudMenuItem Disabled="true">
             <MudText Typo="Typo.caption" Color="Color.Secondary">— Shapes —</MudText>
         </MudMenuItem>
@@ -110,7 +118,6 @@
                 </span>
             </MudMenuItem>
         }
-
         <MudMenuItem Disabled="true">
             <MudText Typo="Typo.caption" Color="Color.Secondary">— Emoji —</MudText>
         </MudMenuItem>
@@ -125,7 +132,9 @@
             </MudMenuItem>
         }
     </MudMenu>
+
     <MudSpacer />
+
     <MudIconButton Icon="@Icons.Material.Filled.Home"
                    Title="Back to menu"
                    OnClick="@(() => Nav.NavigateTo("/"))" />
@@ -134,7 +143,7 @@
     {
         <MudChip T="string" Color="Color.Success" Size="Size.Small"
                  Icon="@Icons.Material.Filled.Wifi" Class="mr-1">
-            Live class
+            <span class="toolbar-text">Live class</span>
         </MudChip>
     }
 
@@ -225,7 +234,7 @@
             <canvas id="turtleCanvas"></canvas>
         </div>
     </div>
-
+   
 </div>
 
 @code {
@@ -266,7 +275,6 @@
     private bool _isRunning = false;
     private bool _challengePanelOpen = false;
     private string _statusMessage = "Ready";
-
     private readonly List<ConsoleLine> _consoleLines = new();
     private IJSObjectReference? _jsModule;
     private CancellationTokenSource? _cts;
@@ -776,4 +784,6 @@ var picker = new Windows.Storage.Pickers.FileSavePicker();
         Log("Editor cleared.", isSystem: true);
         StateHasChanged();
     }
+
+   
 }

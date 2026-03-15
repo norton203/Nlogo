@@ -109,3 +109,24 @@ html, body {
 .tok-operator {
     color: #d4d4d4;
 }
+/* ── Mobile / touch global fixes ───────────────────────────────── */
+@media (max-width: 600px) {
+
+    /* Ensure MudBlazor icon buttons are at least 44×44 px (touch target) */
+    .mud-icon-button {
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
+
+    /* Tighten up MudBlazor chip padding on small screens */
+    .mud-chip {
+        font-size: 0.65rem !important;
+        padding: 0 6px !important;
+        height: 22px !important;
+    }
+
+    /* Console output — slightly larger text for readability */
+    .console-output {
+        font-size: 13px !important;
+    }
+}
